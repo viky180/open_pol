@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Use Case: Indore Drinking Water Crisis | OpenPolitics</title>
+    <meta name="description"
+        content="How citizens of Indore, Madhya Pradesh organized to solve their drinking water crisis using decentralized political coordination.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --primary-dark: #4f46e5;
+            --accent: #10b981;
+            --accent-dark: #059669;
+            --secondary: #f59e0b;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-primary: rgba(148, 163, 184, 0.1);
+            --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --gradient-2: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        /* Navigation */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem 2rem;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-primary);
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-decoration: none;
+        }
+
+        .nav-back {
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s;
+            border: 1px solid var(--border-primary);
+        }
+
+        .nav-back:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 6rem 1.5rem 4rem;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 3rem 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 2rem;
+            color: var(--secondary);
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        /* Location Tag */
+        .location-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 0.75rem;
+            margin-top: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .location-tag svg {
+            color: #ef4444;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.5rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--primary), var(--accent), var(--secondary));
+            border-radius: 1px;
+        }
+
+        .timeline-step {
+            position: relative;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: 1rem;
+            transition: all 0.4s ease;
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+
+        .timeline-step.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .timeline-step:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-glow);
+            transform: translateX(5px);
+        }
+
+        .timeline-step::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            top: 2rem;
+            width: 1rem;
+            height: 1rem;
+            background: var(--primary);
+            border-radius: 50%;
+            border: 3px solid var(--bg-primary);
+            transition: all 0.3s;
+        }
+
+        .timeline-step:nth-child(2)::before {
+            background: var(--accent);
+        }
+
+        .timeline-step:nth-child(3)::before {
+            background: #f59e0b;
+        }
+
+        .timeline-step:nth-child(4)::before {
+            background: #ec4899;
+        }
+
+        .timeline-step:nth-child(5)::before {
+            background: #8b5cf6;
+        }
+
+        .timeline-step:nth-child(6)::before {
+            background: #06b6d4;
+        }
+
+        .timeline-step:nth-child(7)::before {
+            background: var(--accent);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            background: var(--gradient-1);
+            border-radius: 0.75rem;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .step-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .step-date {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-left: auto;
+            padding: 0.25rem 0.75rem;
+            background: var(--bg-primary);
+            border-radius: 0.5rem;
+        }
+
+        .step-content {
+            color: var(--text-secondary);
+            padding-left: 3.5rem;
+        }
+
+        /* Cards inside steps */
+        .party-card {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .party-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .party-avatar {
+            width: 3rem;
+            height: 3rem;
+            background: var(--gradient-1);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .party-info h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .party-info p {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .party-stats {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-light);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Member avatars */
+        .member-avatars {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-top: 1rem;
+        }
+
+        .avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            border: 2px solid var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            margin-left: -0.5rem;
+        }
+
+        .avatar:first-child {
+            margin-left: 0;
+        }
+
+        .avatar-more {
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            font-size: 0.625rem;
+        }
+
+        /* Trust Vote Animation */
+        .trust-votes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .vote-card {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 0.75rem;
+            font-size: 0.875rem;
+            animation: fadeInUp 0.5s ease forwards;
+            opacity: 0;
+        }
+
+        .vote-card:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+
+        .vote-card:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .vote-card:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        .vote-card:nth-child(4) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .vote-arrow {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Merge Animation */
+        .merge-visual {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+
+        .merge-party {
+            background: var(--bg-secondary);
+            border: 2px solid var(--primary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            min-width: 180px;
+            transition: all 0.5s;
+        }
+
+        .merge-arrow {
+            font-size: 2rem;
+            color: var(--accent);
+            animation: bounceX 1s infinite;
+        }
+
+        @keyframes bounceX {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            50% {
+                transform: translateX(10px);
+            }
+        }
+
+        .merged-party {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%);
+            border: 2px solid var(--accent);
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            min-width: 250px;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.2);
+        }
+
+        .merged-party h4 {
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .merged-party .members {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Email Preview */
+        .email-preview {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 1rem;
+            overflow: hidden;
+            margin-top: 1.5rem;
+        }
+
+        .email-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .email-dot {
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+        }
+
+        .email-dot.red {
+            background: #ef4444;
+        }
+
+        .email-dot.yellow {
+            background: #f59e0b;
+        }
+
+        .email-dot.green {
+            background: #10b981;
+        }
+
+        .email-body {
+            padding: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .email-field {
+            display: flex;
+            margin-bottom: 0.75rem;
+        }
+
+        .email-label {
+            color: var(--text-muted);
+            width: 5rem;
+            flex-shrink: 0;
+        }
+
+        .email-value {
+            color: var(--text-primary);
+        }
+
+        .email-subject {
+            font-weight: 600;
+            color: var(--primary-light);
+        }
+
+        .email-content {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-primary);
+            color: var(--text-secondary);
+            white-space: pre-line;
+        }
+
+        /* Result Card */
+        .result-card {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(34, 211, 153, 0.05) 100%);
+            border: 2px solid rgba(16, 185, 129, 0.3);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            margin-top: 1.5rem;
+            text-align: center;
+        }
+
+        .result-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .result-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .result-stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .result-stat {
+            text-align: center;
+        }
+
+        .result-stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: var(--gradient-2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .result-stat-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        /* Key Takeaways */
+        .takeaways {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .takeaway-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .takeaway-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .takeaway-icon {
+            width: 3rem;
+            height: 3rem;
+            background: var(--gradient-1);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .takeaway-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .takeaway-text {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            text-align: center;
+            padding: 4rem 2rem;
+            margin-top: 4rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+            border-radius: 2rem;
+            border: 1px solid var(--border-primary);
+        }
+
+        .cta-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .cta-text {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.875rem 2rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(99, 102, 241, 0.5);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-secondary);
+            border-color: var(--primary);
+        }
+
+        /* Interactive Progress */
+        .progress-bar {
+            position: fixed;
+            top: 64px;
+            left: 0;
+            height: 3px;
+            background: var(--gradient-1);
+            z-index: 99;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 5rem 1rem 3rem;
+            }
+
+            .timeline {
+                padding-left: 1.5rem;
+            }
+
+            .step-content {
+                padding-left: 0;
+            }
+
+            .step-header {
+                flex-wrap: wrap;
+            }
+
+            .step-date {
+                margin-left: 0;
+                margin-top: 0.5rem;
+                width: 100%;
+            }
+
+            .merge-visual {
+                flex-direction: column;
+            }
+
+            .merge-arrow {
+                transform: rotate(90deg);
+                animation: bounceY 1s infinite;
+            }
+
+            @keyframes bounceY {
+
+                0%,
+                100% {
+                    transform: rotate(90deg) translateX(0);
+                }
+
+                50% {
+                    transform: rotate(90deg) translateX(10px);
+                }
+            }
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+            cursor: help;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem 1rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 100;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+        }
+
+        /* Person Cards */
+        .person-card {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .person-avatar {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .person-info h5 {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .person-info p {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .leader-badge {
+            background: var(--gradient-2);
+            color: white;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+            margin-left: 0.5rem;
+        }
+
+        /* Newspaper Style */
+        .news-headline {
+            background: white;
+            color: #1a1a1a;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            font-family: 'Times New Roman', serif;
+        }
+
+        .news-headline h5 {
+            font-size: 0.6rem;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .news-headline h4 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .news-subheadline {
+            font-size: 0.9rem;
+            color: #444;
+            margin-top: 0.5rem;
+        }
+
+        /* Interactive Elements */
+        .simulation-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid var(--primary);
+            color: var(--primary-light);
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 1rem;
+        }
+
+        .simulation-btn:hover {
+            background: rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .simulation-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary-light);
+            pointer-events: none;
+        }
+
+        .hidden-content {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .visible-content {
+            display: block;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .vote-card {
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .vote-card:hover {
+            background-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .vote-card.voted {
+            border-color: var(--accent);
+            background: rgba(16, 185, 129, 0.3);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            width: 5px;
+            height: 5px;
+            background-color: var(--text-muted);
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out both;
+            margin: 0 1px;
+        }
+
+        .typing-indicator span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes typing {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+            }
+
+            40% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-pattern"></div>
+    <div class="progress-bar" id="progress"></div>
+
+    <nav class="nav">
+        <a href="/" class="nav-logo">OpenPolitics</a>
+        <a href="/" class="nav-back">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Back to Home
+        </a>
+    </nav>
+
+    <div class="container">
+        <header class="hero">
+            <span class="hero-badge">
+                <span>📍</span>
+                Real Use Case
+            </span>
+            <h1>The Indore Drinking Water Movement</h1>
+            <p>How ordinary citizens organized, chose their own leaders through trust votes, merged their efforts, and
+                created lasting political change — all without a traditional political party.</p>
+            <div class="location-tag">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                </svg>
+                <span>Indore, Madhya Pradesh • Pincodes: 452001-452014</span>
+            </div>
+        </header>
+
+        <!-- Timeline -->
+        <div class="timeline">
+            <!-- Step 1: The Problem -->
+            <div class="timeline-step" data-step="1">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <div class="step-title">The Problem Emerges</div>
+                    <span class="step-date">January 2026</span>
+                </div>
+                <div class="step-content">
+                    <p>Residents of <strong>Vijay Nagar, Indore</strong> notice a disturbing pattern: tap water has
+                        turned yellowish and has an unusual odor. Children are getting sick. Multiple complaints to the
+                        ward member go unanswered.</p>
+
+                    <div class="party-card" style="margin-top: 1.5rem;">
+                        <h4 style="color: var(--primary-light); margin-bottom: 1rem;">🚰 The Issue</h4>
+                        <p style="font-size: 1.125rem; color: var(--text-primary); font-weight: 500;">
+                            "Drinking water is not safe in Vijay Nagar area. Municipal water supply is contaminated and
+                            not potable. We need immediate water quality testing and proper filtration."
+                        </p>
+                        <div class="party-stats">
+                            <div class="stat">
+                                <span class="stat-value">8,000+</span>
+                                <span class="stat-label">Affected Families</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">47</span>
+                                <span class="stat-label">Sick Children</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">3</span>
+                                <span class="stat-label">Months Ignored</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: First Party Created -->
+            <div class="timeline-step" data-step="2">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Citizens Create Their Party</div>
+                    <span class="step-date">February 5, 2026</span>
+                </div>
+                <div class="step-content">
+                    <p><strong>Priya Sharma</strong>, a local school teacher, discovers OpenPolitics. She creates an
+                        issue-party focused solely on the water contamination problem. Within days, neighbors start
+                        joining.</p>
+
+                    <div class="party-card">
+                        <div class="party-header">
+                            <div class="party-avatar">💧</div>
+                            <div class="party-info">
+                                <h4>Vijay Nagar Clean Water Party</h4>
+                                <p>Pincode: 452010</p>
+                            </div>
+                        </div>
+                        <div class="party-stats">
+                            <div class="stat">
+                                <span class="stat-value" id="member-count">23</span>
+                                <span class="stat-label">Initial Members</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">Level 2</span>
+                                <span class="stat-label">Party Status</span>
+                            </div>
+                        </div>
+                        <div class="member-avatars" style="margin-top: 1rem;">
+                            <div class="avatar" style="background: linear-gradient(135deg, #ec4899, #f43f5e);">PS</div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">RK</div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #10b981, #34d399);">AM</div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">VT</div>
+                            <div class="avatar" style="background: linear-gradient(135deg, #06b6d4, #22d3ee);">SK</div>
+                            <div class="avatar avatar-more" id="avatar-more">+18</div>
+                            <div class="avatar" id="your-avatar" style="background: var(--primary); display: none;">YOU
+                            </div>
+                        </div>
+                        <button class="simulation-btn" id="join-btn" onclick="joinParty()">
+                            <span>+</span> Join This Party
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Trust Vote -->
+            <div class="timeline-step" data-step="3">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <div class="step-title">Leader Emerges Through Trust</div>
+                    <span class="step-date">February 10, 2026</span>
+                </div>
+                <div class="step-content">
+                    <p>No elections. No campaigns. Members simply give their trust votes to whoever they believe should
+                        represent them. The most trusted person automatically becomes the leader.</p>
+
+                    <p class="mb-2"><strong>Interactive Demo:</strong> Click the cards below to see how trust votes
+                        select the leader.</p>
+                    <div class="trust-votes" id="vote-container">
+                        <div class="vote-card" onclick="castVote(this)">
+                            <span>Rahul K.</span>
+                            <span class="vote-arrow">→</span>
+                            <span style="color: var(--accent);">Priya S.</span>
+                        </div>
+                        <div class="vote-card" onclick="castVote(this)">
+                            <span>Amita M.</span>
+                            <span class="vote-arrow">→</span>
+                            <span style="color: var(--accent);">Priya S.</span>
+                        </div>
+                        <div class="vote-card" onclick="castVote(this)">
+                            <span>Vikram T.</span>
+                            <span class="vote-arrow">→</span>
+                            <span style="color: var(--accent);">Priya S.</span>
+                        </div>
+                        <div class="vote-card" onclick="castVote(this)">
+                            <span>Sneha K.</span>
+                            <span class="vote-arrow">→</span>
+                            <span style="color: var(--accent);">Priya S.</span>
+                        </div>
+                    </div>
+
+                    <div class="person-card hidden-content" id="leader-reveal" style="margin-top: 1.5rem;">
+                        <div class="person-avatar" style="background: linear-gradient(135deg, #ec4899, #f43f5e);">PS
+                        </div>
+                        <div class="person-info">
+                            <h5>Priya Sharma <span class="leader-badge">LEADER</span></h5>
+                            <p>School Teacher, Vijay Nagar • <span id="trust-count">18</span> trust votes (Highest)</p>
+                        </div>
+                    </div>
+
+                    <p style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-muted);">
+                        💡 Trust votes expire in 90 days, ensuring leaders must continuously earn trust. If Priya loses
+                        trust, the leadership automatically transfers to the next most trusted member.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Step 4: Second Party -->
+            <div class="timeline-step" data-step="4">
+                <div class="step-header">
+                    <div class="step-number">4</div>
+                    <div class="step-title">Nearby Locality Joins the Fight</div>
+                    <span class="step-date">February 15, 2026</span>
+                </div>
+                <div class="step-content">
+                    <p>Just 3 km away, residents of <strong>Scheme No. 140</strong> discover they have the same problem!
+                        They create their own party and choose their own leader through trust votes.</p>
+
+                    <button class="simulation-btn" id="discover-btn" onclick="discoverNearby()">
+                        <span>🔍</span> Scan for Nearby Parties
+                    </button>
+
+                    <div id="nearby-party-container" class="hidden-content">
+                        <div class="party-card"
+                            style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(34, 211, 153, 0.05) 100%); border-color: rgba(16, 185, 129, 0.2);">
+                            <div class="party-header">
+                                <div class="party-avatar" style="background: var(--gradient-2);">🌊</div>
+                                <div class="party-info">
+                                    <h4>Scheme 140 Water Safety Party</h4>
+                                    <p>Pincode: 452011</p>
+                                </div>
+                            </div>
+                            <div class="party-stats">
+                                <div class="stat">
+                                    <span class="stat-value" style="color: var(--accent);">31</span>
+                                    <span class="stat-label">Members</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-value" style="color: var(--accent);">Level 2</span>
+                                    <span class="stat-label">Party Status</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="person-card"
+                            style="margin-top: 1rem; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2);">
+                            <div class="person-avatar" style="background: linear-gradient(135deg, #10b981, #34d399);">AM
+                            </div>
+                            <div class="person-info">
+                                <h5>Arun Mehta <span class="leader-badge"
+                                        style="background: var(--gradient-2);">LEADER</span></h5>
+                                <p>Retired Engineer, Scheme 140 • 22 trust votes</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5: Leaders Connect & Merge -->
+            <div class="timeline-step" data-step="5">
+                <div class="step-header">
+                    <div class="step-number">5</div>
+                    <div class="step-title">Leaders Connect, Parties Merge</div>
+                    <span class="step-date">February 20, 2026</span>
+                </div>
+                <div class="step-content">
+                    <p>Priya and Arun discover each other on the platform. They realize they're fighting the same battle
+                        — the contamination is from the <strong>same water treatment plant</strong>. They decide to
+                        merge their parties for greater impact.</p>
+
+                    <div class="merge-visual" id="merge-container">
+                        <div class="merge-party" id="party-a">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">💧</div>
+                            <h4 style="color: var(--text-primary); font-size: 0.9rem;">Vijay Nagar</h4>
+                            <p style="color: var(--primary-light); font-weight: 600;">23 members</p>
+                        </div>
+                        <div class="merge-party" id="party-b">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🌊</div>
+                            <h4 style="color: var(--text-primary); font-size: 0.9rem;">Scheme 140</h4>
+                            <p style="color: var(--accent); font-weight: 600;">31 members</p>
+                        </div>
+                        <div class="merge-arrow hidden-content" id="merge-arrow">→</div>
+                        <div class="merged-party hidden-content" id="merged-result">
+                            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">💧🌊</div>
+                            <h4>Indore Clean Water Alliance</h4>
+                            <p class="members">54 combined members</p>
+                            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem;">Level 2 → <span
+                                    style="color: var(--secondary);">Level 2 (growing!)</span></p>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin-bottom: 1rem;">
+                        <button class="simulation-btn" id="merge-btn" onclick="mergeParties()">
+                            <span>🔗</span> Connect & Merge Parties
+                        </button>
+                    </div>
+
+                    <p style="font-size: 0.875rem; color: var(--text-muted);">
+                        🔗 Merged parties can <strong>de-merge</strong> anytime if goals diverge. Each original party
+                        retains its identity and members.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Step 6: Taking Action -->
+            <div class="timeline-step" data-step="6">
+                <div class="step-header">
+                    <div class="step-number">6</div>
+                    <div class="step-title">Advocacy: Emails to Authorities</div>
+                    <span class="step-date">February 25, 2026</span>
+                </div>
+                <div class="step-content">
+                    <p>As Level 2+ party, they can now send official advocacy emails. They reach out to government
+                        authorities and news channels, documenting everything transparently on the platform.</p>
+
+                    <div style="margin-bottom: 1.5rem;">
+                        <button class="simulation-btn" id="send-email-btn" onclick="sendEmail()">
+                            <span>📧</span> Send Official Advocacy Email
+                        </button>
+                        <span id="sending-indicator" class="hidden-content"
+                            style="margin-left: 1rem; color: var(--text-muted); font-size: 0.875rem;">
+                            Sending <span class="typing-indicator"><span></span><span></span><span></span></span>
+                        </span>
+                    </div>
+
+                    <div class="email-preview hidden-content" id="email-preview">
+                        <div class="email-header">
+                            <div class="email-dot red"></div>
+                            <div class="email-dot yellow"></div>
+                            <div class="email-dot green"></div>
+                            <span style="margin-left: 0.75rem; color: var(--text-muted); font-size: 0.8rem;">Official
+                                Advocacy Email</span>
+                        </div>
+                        <div class="email-body">
+                            <div class="email-field">
+                                <span class="email-label">To:</span>
+                                <span class="email-value">commissioner@imcindore.gov.in</span>
+                            </div>
+                            <div class="email-field">
+                                <span class="email-label">CC:</span>
+                                <span class="email-value">phed.indore@mp.gov.in, collector.indore@mp.gov.in</span>
+                            </div>
+                            <div class="email-field">
+                                <span class="email-label">Subject:</span>
+                                <span class="email-subject">Urgent: Contaminated Water Supply Affecting 10,000+ Families
+                                    in Vijay Nagar & Scheme 140</span>
+                            </div>
+                            <div class="email-content">
+                                Respected Sir/Madam,
+
+                                We, the Indore Clean Water Alliance (54 verified citizen members), write to formally
+                                report severe water contamination affecting pincodes 452010-452011.
+
+                                <strong>Key Issues:</strong>
+                                • Yellowish water with unusual odor since November 2025
+                                • 47+ documented cases of waterborne illness in children
+                                • Multiple complaints to Ward 43 Corporation Office ignored
+                                • Independent lab tests show coliform levels 4x above safe limits
+
+                                <strong>Our Demands:</strong>
+                                1. Immediate water quality audit of Krishna Pura Treatment Plant
+                                2. Temporary tanker water supply until issue is resolved
+                                3. Public disclosure of water quality reports
+
+                                We have attached lab reports and signed affidavits from 54 members. This matter is also
+                                being shared with local news media.
+
+                                Respectfully,
+                                <strong>Priya Sharma & Arun Mehta</strong>
+                                Co-Leaders, Indore Clean Water Alliance
+
+                                <span style="color: var(--text-muted);">Verified via OpenPolitics • 54 Members • Level 2
+                                    Party</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="email-stamps" class="hidden-content"
+                        style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <span
+                            style="padding: 0.5rem 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 0.5rem; font-size: 0.8rem; color: #f87171;">📺
+                            Sent to Dainik Bhaskar</span>
+                        <span
+                            style="padding: 0.5rem 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 0.5rem; font-size: 0.8rem; color: #f87171;">📺
+                            Sent to Zee News MP</span>
+                        <span
+                            style="padding: 0.5rem 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 0.5rem; font-size: 0.8rem; color: #f87171;">📺
+                            Sent to Patrika</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 7: The Outcome -->
+            <div class="timeline-step" data-step="7">
+                <div class="step-header">
+                    <div class="step-number">7</div>
+                    <div class="step-title">The Outcome: From Goodwill to Victory</div>
+                    <span class="step-date">March 2026 - Present</span>
+                </div>
+                <div class="step-content">
+                    <p>The immediate water issue wasn't solved by the current ward member. But something more important
+                        happened...</p>
+
+                    <button class="simulation-btn" id="outcome-btn" onclick="revealOutcome()">
+                        <span>🏆</span> See The Result
+                    </button>
+
+                    <div id="outcome-container" class="hidden-content">
+                        <div class="news-headline">
+                            <h5>Dainik Bhaskar • March 15, 2026</h5>
+                            <h4>Citizen Alliance Exposes Water Contamination Negligence; Ward Corporator Faces Heat</h4>
+                            <p class="news-subheadline">Coalition of 50+ residents from Vijay Nagar and Scheme 140
+                                demands accountability after months of ignored complaints</p>
+                        </div>
+
+                        <div class="result-card">
+                            <div class="result-icon">🏆</div>
+                            <div class="result-title">2027 Municipal Elections</div>
+                            <p style="color: var(--text-secondary);">The trust, transparency, and organized action built
+                                by the movement translated into real political power.</p>
+
+                            <div class="result-stats">
+                                <div class="result-stat">
+                                    <div class="result-stat-value">1,247</div>
+                                    <div class="result-stat-label">Alliance Members</div>
+                                </div>
+                                <div class="result-stat">
+                                    <div class="result-stat-value">2</div>
+                                    <div class="result-stat-label">Ward Seats Won</div>
+                                </div>
+                                <div class="result-stat">
+                                    <div class="result-stat-value">✓</div>
+                                    <div class="result-stat-label">Priya Elected Corporator</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p
+                            style="margin-top: 1.5rem; padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: 0.75rem; color: var(--text-secondary);">
+                            <strong style="color: var(--accent);">The key insight:</strong> Leaders emerged organically
+                            from the community. No party headquarters chose them. No money was needed. The people who
+                            did the work earned the trust, and that trust translated to votes.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Takeaways -->
+        <section style="margin-top: 4rem;">
+            <h2 style="text-align: center; font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem;">Why This Worked
+            </h2>
+            <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">The principles that made
+                this movement successful</p>
+
+            <div class="takeaways">
+                <div class="takeaway-card">
+                    <div class="takeaway-icon">🎯</div>
+                    <div class="takeaway-title">Single-Issue Focus</div>
+                    <div class="takeaway-text">No ideology. No manifesto. Just one clear problem to solve. This brought
+                        together people who might never agree politically but all wanted clean water.</div>
+                </div>
+
+                <div class="takeaway-card">
+                    <div class="takeaway-icon">🤝</div>
+                    <div class="takeaway-title">Trust-Based Leadership</div>
+                    <div class="takeaway-text">No elections to rig, no money to spend on campaigns. The person who works
+                        hardest and cares most naturally rises to lead.</div>
+                </div>
+
+                <div class="takeaway-card">
+                    <div class="takeaway-icon">🔗</div>
+                    <div class="takeaway-title">Organic Merging</div>
+                    <div class="takeaway-text">Similar issues in nearby areas? Merge forces. Goals diverge? De-merge
+                        easily. Flexibility without bureaucracy.</div>
+                </div>
+
+                <div class="takeaway-card">
+                    <div class="takeaway-icon">📢</div>
+                    <div class="takeaway-title">Verified Voice</div>
+                    <div class="takeaway-text">When 54 verified citizens speak together, authorities and media listen.
+                        Individual complaints get ignored; organized advocacy gets action.</div>
+                </div>
+
+                <div class="takeaway-card">
+                    <div class="takeaway-icon">⏰</div>
+                    <div class="takeaway-title">Expiring Trust</div>
+                    <div class="takeaway-text">Trust votes expire in 90 days. Leaders must continuously earn support. No
+                        lifetime positions, no complacency.</div>
+                </div>
+
+                <div class="takeaway-card">
+                    <div class="takeaway-icon">🌱</div>
+                    <div class="takeaway-title">Grassroots to Government</div>
+                    <div class="takeaway-text">Started with a WhatsApp complaint, ended with elected representatives.
+                        Real political power built from the ground up.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="cta-section">
+            <h2 class="cta-title">Your Local Issue Deserves Action</h2>
+            <p class="cta-text">Whether it's water, roads, sanitation, or any other local problem — you can start
+                building power today.</p>
+            <div class="cta-buttons">
+                <a href="/party/create" class="btn btn-primary">
+                    <span>+</span>
+                    Create Your Issue-Party
+                </a>
+                <a href="/" class="btn btn-secondary">
+                    Browse Existing Parties
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Scroll Progress Bar
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (winScroll / height) * 100;
+            document.getElementById('progress').style.width = scrolled + '%';
+        });
+
+        // Animate timeline steps on scroll
+        const observerOptions = {
+            threshold: 0.2,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.timeline-step').forEach(step => {
+            observer.observe(step);
+        });
+
+        // Add some interactivity to vote cards
+        document.querySelectorAll('.vote-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'scale(1.05)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'scale(1)';
+            });
+        });
+        // Interactive Functions
+
+        // Step 2: Join Party
+        function joinParty() {
+            const btn = document.getElementById('join-btn');
+            if (btn.classList.contains('active')) return;
+
+            btn.classList.add('active');
+            btn.innerHTML = '<span>✓</span> You Joined!';
+
+            const countDisplay = document.getElementById('member-count');
+            let count = parseInt(countDisplay.innerText);
+
+            // Animate count up
+            const interval = setInterval(() => {
+                count++;
+                countDisplay.innerText = count;
+                if (count >= 24) clearInterval(interval);
+            }, 50);
+
+            // Show user avatar
+            const moreAvatar = document.getElementById('avatar-more');
+            const userAvatar = document.getElementById('your-avatar');
+
+            userAvatar.style.display = 'flex';
+            userAvatar.classList.add('visible-content');
+            moreAvatar.style.display = 'none';
+        }
+
+        // Step 3: Cast Vote
+        let votesCast = 0;
+        function castVote(card) {
+            if (card.classList.contains('voted')) return;
+
+            // Reset others
+            document.querySelectorAll('.vote-card').forEach(c => c.classList.remove('voted'));
+
+            card.classList.add('voted');
+            votesCast++;
+
+            // Reveal leader result after first interaction
+            const leaderReveal = document.getElementById('leader-reveal');
+            if (leaderReveal.classList.contains('hidden-content')) {
+                leaderReveal.classList.remove('hidden-content');
+                leaderReveal.classList.add('visible-content');
+
+                // Animate vote count
+                const trustCount = document.getElementById('trust-count');
+                let count = 18;
+                trustCount.innerText = count;
+                setTimeout(() => {
+                    trustCount.innerText = count + 1;
+                    trustCount.style.color = '#10b981';
+                    trustCount.style.fontWeight = '800';
+                }, 500);
+            }
+        }
+
+        // Step 5: Merge Parties
+        function mergeParties() {
+            const btn = document.getElementById('merge-btn');
+            if (btn.classList.contains('active')) return;
+
+            btn.classList.add('active');
+            btn.innerHTML = '<span>✓</span> Merge Initiated';
+
+            const partyA = document.getElementById('party-a');
+            const partyB = document.getElementById('party-b');
+            const arrow = document.getElementById('merge-arrow');
+            const result = document.getElementById('merged-result');
+
+            // Animation sequence
+            partyA.style.transform = 'translate(50px, 0) scale(0.9)';
+            partyA.style.opacity = '0.5';
+
+            setTimeout(() => {
+                partyB.style.transform = 'translate(-50px, 0) scale(0.9)';
+                partyB.style.opacity = '0.5';
+            }, 200);
+
+            setTimeout(() => {
+                arrow.classList.remove('hidden-content');
+                arrow.classList.add('visible-content');
+            }, 600);
+
+            setTimeout(() => {
+                result.classList.remove('hidden-content');
+                result.classList.add('visible-content');
+            }, 1200);
+        }
+
+        // Step 6: Send Email
+        function sendEmail() {
+            const btn = document.getElementById('send-email-btn');
+            if (btn.classList.contains('active')) return;
+
+            btn.classList.add('active');
+            btn.innerHTML = 'Sending...';
+
+            const indicator = document.getElementById('sending-indicator');
+            indicator.classList.remove('hidden-content');
+            indicator.classList.add('visible-content');
+
+            setTimeout(() => {
+                indicator.innerHTML = '✓ Sent Successfully';
+                indicator.style.color = '#10b981';
+                btn.innerHTML = '<span>✓</span> Email Sent';
+
+                const preview = document.getElementById('email-preview');
+                preview.classList.remove('hidden-content');
+                preview.classList.add('visible-content');
+            }, 2000);
+
+            setTimeout(() => {
+                const stamps = document.getElementById('email-stamps');
+                stamps.classList.remove('hidden-content');
+                stamps.classList.add('visible-content');
+            }, 3000);
+        }
+
+        // Step 4: Discover Nearby
+        function discoverNearby() {
+            const btn = document.getElementById('discover-btn');
+            if (btn.classList.contains('active')) return;
+
+            btn.classList.add('active');
+            btn.innerHTML = 'Scanning...';
+
+            setTimeout(() => {
+                btn.innerHTML = '<span>✓</span> Found Nearby Party!';
+                const container = document.getElementById('nearby-party-container');
+                container.classList.remove('hidden-content');
+                container.classList.add('visible-content');
+            }, 800);
+        }
+
+        // Step 7: Reveal Outcome
+        function revealOutcome() {
+            const btn = document.getElementById('outcome-btn');
+            if (btn.classList.contains('active')) return;
+
+            btn.classList.add('active');
+            btn.innerHTML = 'Revealing...';
+
+            setTimeout(() => {
+                btn.style.display = 'none';
+                const container = document.getElementById('outcome-container');
+                container.classList.remove('hidden-content');
+                container.classList.add('visible-content');
+            }, 600);
+        }
+    </script>
+</body>
+
+</html>
