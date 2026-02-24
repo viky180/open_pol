@@ -209,17 +209,18 @@ export default async function PartyPage({ params }: Props) {
     const attachedSubgroupIds = attachedSubgroups.map((p) => p.id);
 
     // Fetch member counts for each sub-group (used for fork winner badge)
-    const childGroupCounts = attachedSubgroups.length > 0
-        ? await Promise.all(
-            attachedSubgroups.map(s => supabase.rpc('get_recursive_member_count', { p_party_id: s.id }))
-        )
-        : [];
-    const childGroupsWithCounts = attachedSubgroups.map((s, i) => ({
+    const childGroupCountsResp = attachedSubgroups.length > 0
+        ? await (supabase.rpc as any)('get_recursive_member_counts_batch', { p_party_ids: attachedSubgroups.map(s => s.id) })
+        : { data: [] };
+    const childGroupCountsMap = new Map<string, number>(
+        (childGroupCountsResp.data || []).map((row: any) => [row.party_id, row.member_count])
+    );
+    const childGroupsWithCounts = attachedSubgroups.map((s) => ({
         id: s.id,
         issue_text: s.issue_text,
         icon_svg: s.icon_svg || null,
         icon_image_url: s.icon_image_url || null,
-        memberCount: (childGroupCounts[i]?.data as number) || 0,
+        memberCount: childGroupCountsMap.get(s.id) || 0,
         location_scope: s.location_scope || null,
         state_name: s.state_name || null,
         district_name: s.district_name || null,
@@ -355,11 +356,11 @@ export default async function PartyPage({ params }: Props) {
         let isLargest = myCount > 0;
 
         if (siblings && siblings.length > 0) {
-            const siblingCounts = await Promise.all(
-                siblings.map(s => supabase.rpc('get_recursive_member_count', { p_party_id: s.id }))
-            );
-            for (const result of siblingCounts) {
-                if ((result.data as number) >= myCount) {
+            const siblingCountsResp = await (supabase.rpc as any)('get_recursive_member_counts_batch', { p_party_ids: siblings.map(s => s.id) });
+            const siblingCounts = siblingCountsResp.data || [];
+            for (const obj of siblingCounts) {
+                const row = obj as any;
+                if ((row.member_count as number) >= myCount) {
                     isLargest = false;
                     break;
                 }
@@ -398,15 +399,16 @@ export default async function PartyPage({ params }: Props) {
 
         const { data: competitors } = await competitorQuery;
         if (competitors && competitors.length > 0) {
-            const competitorCounts = await Promise.all(
-                competitors.map(c => supabase.rpc('get_recursive_member_count', { p_party_id: c.id }))
+            const competitorCountsResp = await (supabase.rpc as any)('get_recursive_member_counts_batch', { p_party_ids: competitors.map(c => c.id) });
+            const competitorCountsMap = new Map<string, number>(
+                (competitorCountsResp.data || []).map((row: any) => [row.party_id, row.member_count])
             );
-            competingGroups = competitors.map((c, i) => ({
+            competingGroups = competitors.map((c) => ({
                 id: c.id,
                 issue_text: c.issue_text,
                 icon_svg: c.icon_svg || null,
                 icon_image_url: c.icon_image_url || null,
-                memberCount: (competitorCounts[i]?.data as number) || 0,
+                memberCount: competitorCountsMap.get(c.id) || 0,
             }));
         }
     }
