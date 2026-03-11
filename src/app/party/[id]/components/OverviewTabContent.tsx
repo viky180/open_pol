@@ -143,10 +143,10 @@ export function OverviewTabContent({
             <div className="mt-12 border-t border-border-primary/70 pt-10">
                 <h2 className="text-lg font-semibold text-text-primary">Participate</h2>
                 <p className="mt-2 text-sm text-text-secondary">
-                    One action can improve representation and accountability today.
+                    One action can improve voice and accountability today.
                 </p>
                 <ul className="mt-4 space-y-2 text-sm text-text-secondary">
-                    <li>Vote for representative</li>
+                    <li>Back someone to be voice</li>
                     <li>Ask public question</li>
                     <li>Help grow this group</li>
                 </ul>

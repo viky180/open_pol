@@ -1,4 +1,4 @@
-import { LOCATION_SCOPE_LEVELS } from '@/types/database';
+import { CREATION_LOCATION_SCOPE_LEVELS, LOCATION_SCOPE_LEVELS } from '@/types/database';
 
 export type CreatePartyPrefill = {
     issueText: string;
@@ -39,6 +39,15 @@ export function parsePincodes(input: string): string[] {
 
 export function getChildDefaultScope(parentScope: string | null | undefined): string {
     const currentScope = parentScope || 'district';
+
+    // Launch creation chain: national -> state -> district -> village
+    const creationIndex = CREATION_LOCATION_SCOPE_LEVELS.findIndex((scope) => scope.value === currentScope);
+    if (creationIndex !== -1) {
+        const nextCreationScope = CREATION_LOCATION_SCOPE_LEVELS[creationIndex + 1];
+        return nextCreationScope?.value || currentScope;
+    }
+
+    // Legacy fallback (for compatibility with older scope values)
     const currentIndex = LOCATION_SCOPE_LEVELS.findIndex((scope) => scope.value === currentScope);
     if (currentIndex === -1) return 'district';
     const nextScope = LOCATION_SCOPE_LEVELS[currentIndex + 1];
@@ -56,12 +65,12 @@ function getScopeLevelWord(scope: string): string {
 }
 
 export function getCreateChildGroupLabel(parentScope: string | null | undefined): string {
-    if (!parentScope) return 'Create child group';
+    if (!parentScope) return 'Create Local Chapter';
 
     const childScope = getChildDefaultScope(parentScope);
-    if (!childScope || childScope === parentScope) return 'Create child group';
+    if (!childScope || childScope === parentScope) return 'Create Local Chapter';
 
-    return `Create ${getScopeLevelWord(childScope)} level group`;
+    return `Create ${getScopeLevelWord(childScope)} Local Chapter`;
 }
 
 export function getCreatePartyPrefill(search: string): CreatePartyPrefill {

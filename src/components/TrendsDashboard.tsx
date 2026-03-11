@@ -79,7 +79,7 @@ function Sparkline({ values, color, width = 80, height = 28 }: {
     );
 }
 
-function ChangeIndicator({ value, size = 'md' }: { value: number; size?: 'sm' | 'md' | 'lg' }) {
+export function ChangeIndicator({ value, size = 'md' }: { value: number; size?: 'sm' | 'md' | 'lg' }) {
     const isPositive = value > 0;
     const isZero = value === 0;
     const sizeClasses = {
@@ -101,7 +101,7 @@ function ChangeIndicator({ value, size = 'md' }: { value: number; size?: 'sm' | 
     );
 }
 
-function TrendCard({ item, rank }: { item: TrendItem; rank: number }) {
+export function TrendCard({ item, rank }: { item: TrendItem; rank: number }) {
     const isGainer = item.member_change >= 0;
     // Generate synthetic sparkline data points for visualization
     const sparkValues = generateSparklineData(item.previous_members, item.current_members, 7);
@@ -126,7 +126,7 @@ function TrendCard({ item, rank }: { item: TrendItem; rank: number }) {
                         {item.current_members.toLocaleString()} members
                     </span>
                     <span className="text-xs text-text-muted">
-                        {item.current_supporters} sub-groups
+                        {item.current_supporters} local chapters
                     </span>
                 </div>
             </div>
@@ -197,15 +197,15 @@ export function TrendsDashboard() {
     return (
         <div className="space-y-8">
             {/* Period Selector */}
-            <div className="flex items-center justify-center gap-2">
+            <div className="editorial-pill-group w-fit mx-auto">
                 {periods.map(p => (
                     <button
                         key={p.key}
                         type="button"
                         onClick={() => setPeriod(p.key)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${period === p.key
-                            ? 'bg-primary text-white shadow-md shadow-primary/25'
-                            : 'bg-bg-secondary text-text-secondary border border-border-primary hover:bg-bg-hover hover:text-text-primary'
+                        className={`editorial-pill ${period === p.key
+                            ? 'editorial-pill--active'
+                            : ''
                             }`}
                     >
                         {p.label}

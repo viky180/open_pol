@@ -6,6 +6,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q') || undefined;
     const category = searchParams.get('category') || undefined;
+    const scope = searchParams.get('scope') || undefined;
     const offset = searchParams.get('offset') || undefined;
     const limit = searchParams.get('limit') || undefined;
 
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
     const data = await getDiscoverPageData(supabase, {
         q,
         category,
+        scope,
         offset,
         limit,
     });

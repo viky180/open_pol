@@ -10,6 +10,8 @@ type HierarchyNode = {
     location_scope: LocationScope;
     member_count: number;
     aggregated_member_count: number;
+    total_member_count: number;
+    is_leading_coalition: boolean;
     level: 1 | 2 | 3 | 4;
     is_current: boolean;
     children: HierarchyNode[];
@@ -27,8 +29,11 @@ type FlatHierarchyRow = {
     issue_text: string;
     node_type: 'community' | 'sub_community' | 'group' | null;
     parent_party_id: string | null;
+    member_count: number | null;
     direct_member_count: number | null;
     aggregated_member_count: number | null;
+    total_member_count: number | null;
+    is_leading_coalition: boolean | null;
     location_scope: LocationScope | null;
 };
 
@@ -85,8 +90,9 @@ function buildHierarchyTreeFromFlat(
     const map = new Map<string, HierarchyNode>();
 
     for (const row of rows) {
-        const directCount = row.direct_member_count || 0;
-        const aggregatedCount = row.aggregated_member_count || 0;
+        const directCount = row.direct_member_count ?? row.member_count ?? 0;
+        const aggregatedCount = row.aggregated_member_count ?? directCount;
+        const totalCount = row.total_member_count ?? aggregatedCount;
         map.set(row.id, {
             party_id: row.id,
             issue_text: row.issue_text,
@@ -94,6 +100,8 @@ function buildHierarchyTreeFromFlat(
             location_scope: (row.location_scope || 'district') as LocationScope,
             member_count: directCount,
             aggregated_member_count: aggregatedCount,
+            total_member_count: totalCount,
+            is_leading_coalition: !!row.is_leading_coalition,
             level: calculatePartyLevel(aggregatedCount),
             is_current: row.id === currentPartyId,
             children: [],
@@ -110,5 +118,28 @@ function buildHierarchyTreeFromFlat(
         }
     }
 
-    return map.get(rootPartyId) || null;
+    const root = map.get(rootPartyId) || null;
+    if (!root) return null;
+
+    annotateLeadingCoalitions(root);
+    return root;
+}
+
+function annotateLeadingCoalitions(node: HierarchyNode) {
+    if (node.children.length > 0) {
+        const maxTotal = Math.max(...node.children.map((child) => child.total_member_count));
+        const maxCount = node.children.filter((child) => child.total_member_count === maxTotal).length;
+
+        for (const child of node.children) {
+            child.is_leading_coalition = maxTotal > 0 && maxCount === 1 && child.total_member_count === maxTotal;
+        }
+
+        node.children.sort(
+            (a, b) => b.total_member_count - a.total_member_count || a.issue_text.localeCompare(b.issue_text)
+        );
+    }
+
+    for (const child of node.children) {
+        annotateLeadingCoalitions(child);
+    }
 }

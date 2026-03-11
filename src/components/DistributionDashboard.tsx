@@ -274,7 +274,7 @@ export function DistributionDashboard() {
                                             type="button"
                                             onClick={() => toggleCompare(option.key)}
                                             className={`px-3 py-2 rounded-lg border text-xs text-left transition-colors ${active
-                                                ? 'border-primary bg-primary/10 text-primary'
+                                                ? 'border-accent/40 bg-accent/10 text-accent'
                                                 : 'border-border-primary bg-bg-secondary text-text-secondary hover:text-text-primary'
                                                 }`}
                                             title={`${option.groupCount} groups · ${option.memberCount} members`}

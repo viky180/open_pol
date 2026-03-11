@@ -77,7 +77,7 @@ function AuthPageInner() {
                             Open Politics
                         </h1>
                         <p className="text-text-secondary text-sm mt-2">
-                            Sign in to join issue groups, choose trusted representatives, and coordinate local action.
+                            Sign in to join issue groups, choose trusted voices, and coordinate local action.
                         </p>
                     </div>
 

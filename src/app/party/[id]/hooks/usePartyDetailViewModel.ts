@@ -128,13 +128,13 @@ export function usePartyDetailViewModel({
             return {
                 title: optimisticIsMember ? 'Start with one action today' : 'Join to participate in this group',
                 subtitle: optimisticIsMember
-                    ? 'Choose a representative or ask your first public question to get started.'
+                    ? 'Choose a voice or ask your first public question to get started.'
                     : 'Members can vote, ask public questions, and coordinate growth actions.',
             };
         }
         if (activeSection === 'participate') {
             return {
-                title: leader ? `Representative: ${leader.display_name || 'Anonymous'}` : 'No representative selected yet',
+                title: leader ? `Voice: ${leader.display_name || 'Anonymous'}` : 'No voice selected yet',
                 subtitle: `${qaMetrics.total_questions} public question${qaMetrics.total_questions === 1 ? '' : 's'} with ${responseRate}% response rate`,
             };
         }
@@ -162,11 +162,11 @@ export function usePartyDetailViewModel({
     ]);
 
     const leaderTrustLine = (() => {
-        if (!leader) return 'No representative yet. Any member can become trusted to represent this issue.';
+        if (!leader) return 'No voice yet. Any member can become trusted to represent this issue.';
         if (votedFor === leader.user_id && voteExpiresAt) {
-            return `Your trust in this representative ends on ${formatCompactDate(voteExpiresAt)} unless renewed.`;
+            return `Your backing for this voice ends on ${formatCompactDate(voteExpiresAt)} unless renewed.`;
         }
-        return 'Trust is temporary and revocable. Members can change representation at any time.';
+        return 'Backing is temporary and revocable. Members can change voices at any time.';
     })();
 
     const primaryAction: PrimaryAction = (() => {

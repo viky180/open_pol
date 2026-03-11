@@ -20,8 +20,35 @@ export const LOCATION_SCOPE_LEVELS: { value: LocationScope; label: string; icon:
   { value: 'village', label: 'Village/Locality', icon: '🌾', rank: 6 },
 ];
 
+// Launch-phase creation scopes (simplified UX)
+export const CREATION_LOCATION_SCOPES: LocationScope[] = ['national', 'state', 'district', 'village'];
+
+export const CREATION_LOCATION_SCOPE_LEVELS = LOCATION_SCOPE_LEVELS.filter((level) =>
+  CREATION_LOCATION_SCOPES.includes(level.value)
+);
+
+export function isCreationLocationScope(scope: string | null | undefined): scope is LocationScope {
+  if (!scope) return false;
+  return CREATION_LOCATION_SCOPES.includes(scope as LocationScope);
+}
+
 export function getLocationScopeRank(scope: LocationScope | string): number {
   return LOCATION_SCOPE_LEVELS.find(l => l.value === scope)?.rank ?? 99;
+}
+
+export function isValidHierarchyScopeTransition(
+  parentScope: LocationScope | string | null | undefined,
+  childScope: LocationScope | string | null | undefined
+): boolean {
+  if (!parentScope || !childScope) return false;
+
+  // Legacy chain compatibility: exact one-level transition.
+  const parentRank = getLocationScopeRank(parentScope);
+  const childRank = getLocationScopeRank(childScope);
+  if (childRank === parentRank + 1) return true;
+
+  // Launch chain support: district -> village direct transition.
+  return parentScope === 'district' && childScope === 'village';
 }
 
 export function getLocationScopeConfig(scope: LocationScope | string) {
@@ -42,10 +69,23 @@ export function getPartyLocationLabel(party: Partial<Party>): string {
   return party.pincodes?.length ? party.pincodes.slice(0, 2).join(', ') : 'Location not set';
 }
 
+export type Issue = {
+  id: string;
+  issue_text: string;
+  category_id?: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type IssueWithGroupCount = Issue & {
+  national_group_count: number;
+};
+
 export type Party = {
   id: string;
   created_at: string;
   issue_text: string;
+  is_founding_group?: boolean | null;
   title_image_url?: string | null;
   icon_image_url?: string | null;
   icon_svg?: string | null;
@@ -54,6 +94,7 @@ export type Party = {
   lng?: number | null;
   category_id?: string | null;
   parent_party_id?: string | null;
+  issue_id?: string | null;
   node_type?: PartyNodeType;
   location_scope?: LocationScope;
   location_label?: string | null;
@@ -98,9 +139,6 @@ export type MemberWithVotes = {
   joined_at: string;
   trust_votes: number;
   is_leader: boolean;
-  is_subgroup_leader?: boolean;
-  is_self_nominated?: boolean;
-  subgroup_name?: string;
 };
 
 export type TrustVote = {
@@ -184,6 +222,8 @@ export type PartySupport = {
   expires_at: string | null;
 };
 
+
+
 export type Revocation = {
   id: string;
   party_id: string;
@@ -192,18 +232,6 @@ export type Revocation = {
   target_id: string;
   reason: string | null;
   created_at: string;
-};
-
-export type Escalation = {
-  id: string;
-  source_party_id: string;
-  target_party_id: string;
-  created_at: string;
-};
-
-export type EscalationWithParties = Escalation & {
-  source_party: Party;
-  target_party: Party;
 };
 
 
@@ -330,36 +358,6 @@ export type EventRsvp = {
   updated_at: string;
 };
 
-export type MilestoneEscalationActionType = 'media_outreach' | 'formal_letter' | 'higher_authority';
-
-export type MilestoneEscalationRule = {
-  id: string;
-  party_id: string;
-  threshold: number;
-  action_type: MilestoneEscalationActionType;
-  action_title: string;
-  action_body: string | null;
-  is_enabled: boolean;
-  created_at: string;
-  updated_at: string;
-};
-
-export type MilestoneEscalationActionStatus = 'triggered' | 'completed' | 'dismissed';
-
-export type MilestoneEscalationAction = {
-  id: string;
-  party_id: string;
-  rule_id: string | null;
-  threshold: number;
-  action_type: MilestoneEscalationActionType;
-  action_title: string;
-  action_body: string | null;
-  member_count_at_event: number;
-  status: MilestoneEscalationActionStatus;
-  triggered_at: string;
-  completed_at: string | null;
-};
-
 // Party posts (member/leader announcements)
 export type PartyPost = {
   id: string;
@@ -462,6 +460,11 @@ export type Database = {
         Insert: Omit<Category, 'id' | 'created_at'>;
         Update: Partial<Omit<Category, 'id' | 'created_at'>>;
       };
+      issues: {
+        Row: Issue;
+        Insert: Omit<Issue, 'id' | 'created_at'>;
+        Update: Partial<Pick<Issue, 'issue_text' | 'category_id'>>;
+      };
       parties: {
         Row: Party;
         Insert: Omit<Party, 'id' | 'created_at' | 'updated_at'>;
@@ -507,14 +510,10 @@ export type Database = {
         Insert: Omit<PartySupport, 'id' | 'created_at' | 'expires_at'>;
         Update: never;
       };
+
       revocations: {
         Row: Revocation;
         Insert: Omit<Revocation, 'id' | 'created_at'>;
-        Update: never;
-      };
-      escalations: {
-        Row: Escalation;
-        Insert: Omit<Escalation, 'id' | 'created_at'>;
         Update: never;
       };
 
@@ -554,16 +553,6 @@ export type Database = {
         Row: EventRsvp;
         Insert: Omit<EventRsvp, 'id' | 'updated_at'>;
         Update: Pick<EventRsvp, 'status' | 'updated_at' | 'user_pincode_snapshot'>;
-      };
-      milestone_escalation_rules: {
-        Row: MilestoneEscalationRule;
-        Insert: Omit<MilestoneEscalationRule, 'id' | 'created_at' | 'updated_at'>;
-        Update: Partial<Omit<MilestoneEscalationRule, 'id' | 'party_id' | 'created_at'>>;
-      };
-      milestone_escalation_actions: {
-        Row: MilestoneEscalationAction;
-        Insert: Omit<MilestoneEscalationAction, 'id' | 'triggered_at' | 'completed_at'>;
-        Update: Partial<Pick<MilestoneEscalationAction, 'status' | 'completed_at'>>;
       };
       trust_milestones: {
         Row: TrustMilestone;
@@ -609,6 +598,7 @@ export type Database = {
         Args: { p_party_id: string };
         Returns: string | null;
       };
+
       get_user_trust_votes: {
         Args: { p_party_id: string; p_user_id: string };
         Returns: number;

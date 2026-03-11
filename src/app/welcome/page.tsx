@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { useLanguage, copy, type AppLanguage } from '@/components/LanguageContext';
+import { OnboardingStepIndicator } from '@/components/OnboardingStepIndicator';
 import type { Category, Party } from '@/types/database';
 
 interface GroupItem {
@@ -35,6 +36,8 @@ function getCategoryCode(category: Category): string {
 }
 
 const SESSION_KEY = 'openpolitics:welcome:selectedCategory';
+const OPEN_LOCATION_MODAL_EVENT = 'open-location-modal';
+const LOCATION_UPDATED_EVENT = 'location-updated';
 
 export default function WelcomePage() {
     const router = useRouter();
@@ -56,6 +59,8 @@ export default function WelcomePage() {
     const [profileLoading, setProfileLoading] = useState(true);
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileError, setProfileError] = useState<string | null>(null);
+    const [locationCompleted, setLocationCompleted] = useState(false);
+    const [locationStepSkipped, setLocationStepSkipped] = useState(false);
 
     const [joinLoadingPartyId, setJoinLoadingPartyId] = useState<string | null>(null);
     const [joinError, setJoinError] = useState<string | null>(null);
@@ -84,6 +89,7 @@ export default function WelcomePage() {
                     const data = await res.json();
                     setDisplayName(data.display_name || '');
                     setPincode(data.pincode || '');
+                    setLocationCompleted(Boolean(data.state));
                     if (data.display_name && data.display_name.trim().length > 0) {
                         setProfileCompleted(true);
                     }
@@ -95,6 +101,28 @@ export default function WelcomePage() {
             }
         }
         loadProfile();
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const refreshLocationCompletion = async () => {
+            try {
+                const res = await fetch('/api/profile');
+                if (!res.ok) return;
+                const data = await res.json();
+                setLocationCompleted(Boolean(data.state));
+            } catch {
+                // ignore
+            }
+        };
+
+        const onLocationUpdated = () => {
+            refreshLocationCompletion();
+        };
+
+        window.addEventListener(LOCATION_UPDATED_EVENT, onLocationUpdated);
+        return () => window.removeEventListener(LOCATION_UPDATED_EVENT, onLocationUpdated);
     }, [user]);
 
     useEffect(() => {
@@ -255,7 +283,7 @@ export default function WelcomePage() {
             <section className="brand-surface min-h-[70vh]">
                 <div className="container mx-auto px-4 py-10 sm:py-14 max-w-xl">
                     <div className="brand-panel animate-fade-in text-center p-6">
-                        <p className="brand-kicker">Onboarding</p>
+                        <p className="brand-kicker">Getting Started</p>
                         <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mt-4" style={{ fontFamily: 'var(--font-display)' }}>
                             {t.chooseLanguage}
                         </h1>
@@ -266,8 +294,8 @@ export default function WelcomePage() {
                                 type="button"
                                 onClick={() => setSelectedLanguage('en')}
                                 className={`rounded-xl border px-4 py-3 text-left transition-all ${selectedLanguage === 'en'
-                                        ? 'border-primary bg-primary/10 text-text-primary'
-                                        : 'border-border-primary bg-bg-secondary text-text-secondary hover:border-primary/50'
+                                    ? 'border-primary bg-primary/10 text-text-primary'
+                                    : 'border-border-primary bg-bg-secondary text-text-secondary hover:border-primary/50'
                                     }`}
                             >
                                 <div className="font-semibold">English</div>
@@ -277,8 +305,8 @@ export default function WelcomePage() {
                                 type="button"
                                 onClick={() => setSelectedLanguage('hi')}
                                 className={`rounded-xl border px-4 py-3 text-left transition-all ${selectedLanguage === 'hi'
-                                        ? 'border-primary bg-primary/10 text-text-primary'
-                                        : 'border-border-primary bg-bg-secondary text-text-secondary hover:border-primary/50'
+                                    ? 'border-primary bg-primary/10 text-text-primary'
+                                    : 'border-border-primary bg-bg-secondary text-text-secondary hover:border-primary/50'
                                     }`}
                             >
                                 <div className="font-semibold">Hindi</div>
@@ -303,28 +331,29 @@ export default function WelcomePage() {
     }
 
     if (!profileCompleted && !profileLoading) {
+        const profileSteps = [
+            { id: 'about_you', label: 'About you', status: 'current' as const },
+            { id: 'find_group', label: 'Find your group', status: 'upcoming' as const },
+        ];
+
         return (
             <section className="brand-surface min-h-[70vh]">
                 <div className="container mx-auto px-4 py-10 sm:py-14 max-w-xl">
                     <div className="brand-panel animate-fade-in p-6">
-                        <div className="mb-6 rounded-xl border border-border-primary bg-bg-tertiary/60 p-4">
-                            <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-text-muted">
-                                <span>Getting started</span>
-                                <span>About you</span>
-                            </div>
-                            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                                <div className="rounded-lg px-2 py-2 text-center border bg-primary/10 border-primary text-text-primary">About you</div>
-                                <div className="rounded-lg px-2 py-2 text-center border bg-bg-secondary border-border-primary text-text-muted">Find your group</div>
-                            </div>
-                        </div>
+                        <OnboardingStepIndicator
+                            className="mb-6"
+                            title="Getting started"
+                            metaLabel="Step 1 of 2"
+                            steps={profileSteps}
+                        />
 
                         <div className="mb-6">
-                            <p className="brand-kicker">Profile setup</p>
+                            <p className="brand-kicker">Optional profile details</p>
                             <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mt-4" style={{ fontFamily: 'var(--font-display)' }}>
-                                Tell us about you
+                                Tell people how to recognize you
                             </h1>
                             <p className="text-sm text-text-secondary mt-2">
-                                Your name helps others recognize you. Your pincode helps us find local groups.
+                                Your name helps other members recognize you. Your pincode helps us suggest nearby groups. You can skip this and add it later.
                             </p>
                         </div>
 
@@ -369,18 +398,69 @@ export default function WelcomePage() {
                                 disabled={profileSaving || displayName.trim().length === 0}
                                 className="btn btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {profileSaving ? 'Saving...' : 'Continue'}
+                                {profileSaving ? 'Saving...' : 'Save and continue'}
                             </button>
 
                             <div className="text-center">
                                 <button
                                     type="button"
                                     onClick={() => setProfileCompleted(true)}
-                                    className="text-sm text-text-muted hover:text-primary transition-colors"
+                                    className="btn btn-secondary w-full"
                                 >
-                                    Skip for now {'->'}
+                                    Skip and explore groups
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    if (!locationCompleted && !locationStepSkipped) {
+        const locationSteps = [
+            { id: 'about_you', label: 'About you', status: 'completed' as const },
+            { id: 'set_location', label: 'Set location', status: 'current' as const },
+            { id: 'find_group', label: 'Find your group', status: 'upcoming' as const },
+        ];
+
+        return (
+            <section className="brand-surface min-h-[70vh]">
+                <div className="container mx-auto px-4 py-10 sm:py-14 max-w-xl">
+                    <div className="brand-panel animate-fade-in p-6">
+                        <OnboardingStepIndicator
+                            className="mb-6"
+                            title="Getting started"
+                            metaLabel="Step 2 of 3"
+                            steps={locationSteps}
+                        />
+
+                        <div className="mb-6">
+                            <p className="brand-kicker">Location setup</p>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mt-4" style={{ fontFamily: 'var(--font-display)' }}>
+                                Set your location for better local matches
+                            </h1>
+                            <p className="text-sm text-text-secondary mt-2">
+                                This helps OpenPolitics recommend nearby groups and local issues relevant to your area.
+                            </p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <button
+                                type="button"
+                                onClick={() => window.dispatchEvent(new Event(OPEN_LOCATION_MODAL_EVENT))}
+                                className="btn btn-primary w-full"
+                            >
+                                Set location now
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setLocationStepSkipped(true)}
+                                className="btn btn-secondary w-full"
+                            >
+                                Do this later
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -391,40 +471,44 @@ export default function WelcomePage() {
     const visibleCategories = showAllCategories ? categories : categories.slice(0, 6);
     const hasMoreCategories = categories.length > 6;
     const currentStep = selectedCategory ? 2 : 1;
+    const groupSetupSteps = [
+        {
+            id: 'choose_cause',
+            label: 'Choose cause',
+            status: selectedCategory ? 'completed' as const : 'current' as const,
+        },
+        {
+            id: 'pick_group',
+            label: 'Pick group',
+            status: selectedCategory ? 'current' as const : 'upcoming' as const,
+        },
+    ];
 
     return (
         <section className="brand-surface min-h-[70vh]">
             <div className="container mx-auto px-4 py-10 sm:py-14 max-w-2xl">
                 <div className="brand-panel animate-fade-in p-6">
-                    <div className="mb-6 rounded-xl border border-border-primary bg-bg-tertiary/60 p-4">
-                        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-text-muted">
-                            <span>Getting started</span>
-                            <span>Step {currentStep} of 2</span>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                            <div className={`rounded-lg px-2 py-2 text-center border ${!selectedCategory ? 'bg-primary/10 border-primary text-text-primary' : 'bg-bg-secondary border-border-primary text-text-muted'}`}>
-                                Choose cause
-                            </div>
-                            <div className={`rounded-lg px-2 py-2 text-center border ${selectedCategory ? 'bg-primary/10 border-primary text-text-primary' : 'bg-bg-secondary border-border-primary text-text-muted'}`}>
-                                Pick group
-                            </div>
-                        </div>
-                    </div>
+                    <OnboardingStepIndicator
+                        className="mb-6"
+                        title="Getting started"
+                        metaLabel={`Step ${currentStep} of 2`}
+                        steps={groupSetupSteps}
+                    />
 
                     <div className="mb-6">
-                        <p className="brand-kicker">Onboarding</p>
+                        <p className="brand-kicker">Getting Started</p>
                         <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mt-4" style={{ fontFamily: 'var(--font-display)' }}>
                             {t.welcomeTitle}
                         </h1>
                         <p className="text-sm text-text-secondary mt-2">
-                            Amplify your voice. Join groups, choose trusted voices, and coordinate with your community.
+                            Find people near you who care about the same things. Join a group. Make things happen.
                         </p>
                     </div>
 
                     {!selectedCategory && (
                         <div className="mt-6">
                             <p className="text-sm text-text-secondary mb-3">Find people who care about the same issues. Pick a topic to see relevant groups.</p>
-                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted mb-4">Choose a cause that matters to you</p>
+                            <p className="text-xs uppercase tracking-[0.2em] text-text-muted mb-4">What do you care about?</p>
 
                             {loadingCategories ? (
                                 <div className="flex justify-center py-8">
@@ -460,7 +544,7 @@ export default function WelcomePage() {
 
                             <div className="mt-6 text-center">
                                 <Link href={continuePath} className="text-sm text-text-muted hover:text-primary transition-colors">
-                                    Skip for now {'->'} Browse groups without setup
+                                    Skip for now and browse groups without setup
                                 </Link>
                             </div>
                         </div>
@@ -513,13 +597,13 @@ export default function WelcomePage() {
                                                     {joinLoadingPartyId === party.id ? 'Joining...' : 'Join'}
                                                 </button>
                                             </div>
-                                            <p className="mt-2 text-xs text-text-muted">Tap the name to preview, or join directly to get started.</p>
+                                            <p className="mt-2 text-xs text-text-muted">Open a group to read more, or join directly if it already fits.</p>
                                         </div>
                                     ))}
 
                                     <div className="pt-4 text-center">
                                         <Link href={`/discover?category=${selectedCategory.id}`} className="text-sm text-primary hover:underline">
-                                            See all {selectedCategory.name} groups {'->'}
+                                            See all {selectedCategory.name} groups
                                         </Link>
                                     </div>
 
@@ -548,7 +632,7 @@ export default function WelcomePage() {
                     )}
 
                     <div className="mt-8 rounded-xl bg-bg-tertiary px-4 py-3 text-center">
-                        <p className="text-text-muted text-xs">No gatekeeping. Join freely. Leave freely.</p>
+                        <p className="text-text-muted text-xs">No strings attached. Join freely. Leave freely.</p>
                     </div>
                 </div>
             </div>

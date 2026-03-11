@@ -5,6 +5,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 // POST /api/admin/simulation/leader
 // Body: { partyId: string, leaderUserId: string }
+// Sets a leader for a group by making all members vote for the specified user.
+// In the flat level model, leadership at every level is determined by trust
+// votes within the winning group (most members) at that (scope + issue_id).
 export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const {
@@ -32,6 +35,8 @@ export async function POST(request: NextRequest) {
     }
 
     const adminClient = createAdminClient();
+
+    // Verify the leader is a direct member
     const { data: directMembers, error: memberError } = await adminClient
         .from('memberships')
         .select('user_id')
@@ -44,59 +49,14 @@ export async function POST(request: NextRequest) {
 
     const directMemberIds = (directMembers || []).map((m) => m.user_id);
 
-    // Parent-group compatibility: candidate can be a direct member OR
-    // current leader of a direct child subgroup.
-    const { data: childGroups, error: childGroupsError } = await adminClient
-        .from('parties')
-        .select('id')
-        .eq('parent_party_id', partyId);
-
-    if (childGroupsError) {
-        return NextResponse.json({ error: childGroupsError.message }, { status: 500 });
-    }
-
-    const childGroupIds = (childGroups || []).map((p) => p.id);
-    const childGroupLeaderIds = new Set<string>();
-
-    for (const childId of childGroupIds) {
-        const { data: childLeaderId, error: childLeaderError } = await adminClient.rpc('get_party_leader', {
-            p_party_id: childId,
-        });
-        if (childLeaderError) {
-            return NextResponse.json({ error: childLeaderError.message }, { status: 500 });
-        }
-        if (childLeaderId) {
-            childGroupLeaderIds.add(childLeaderId as string);
-        }
-    }
-
-    const isEligibleLeader = directMemberIds.includes(leaderUserId) || childGroupLeaderIds.has(leaderUserId);
-    if (!isEligibleLeader) {
+    if (!directMemberIds.includes(leaderUserId)) {
         return NextResponse.json(
-            { error: 'Selected leader must be an active member of this group or a direct child subgroup leader' },
+            { error: 'Selected leader must be an active member of this group' },
             { status: 400 }
         );
     }
 
-    // Mirror parent trust-vote eligibility for voters: direct members plus
-    // members of direct child subgroups.
-    const voterIds = new Set<string>(directMemberIds);
-    if (childGroupIds.length > 0) {
-        const { data: subgroupMembers, error: subgroupMembersError } = await adminClient
-            .from('memberships')
-            .select('user_id')
-            .in('party_id', childGroupIds)
-            .is('left_at', null);
-
-        if (subgroupMembersError) {
-            return NextResponse.json({ error: subgroupMembersError.message }, { status: 500 });
-        }
-
-        for (const row of subgroupMembers || []) {
-            voterIds.add(row.user_id);
-        }
-    }
-
+    // Clear existing votes and make all members vote for the specified user
     const { error: clearError } = await adminClient
         .from('trust_votes')
         .delete()
@@ -106,9 +66,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: clearError.message }, { status: 500 });
     }
 
-    const voterIdList = Array.from(voterIds);
-    if (voterIdList.length > 0) {
-        const rows = voterIdList.map((fromUserId) => ({
+    if (directMemberIds.length > 0) {
+        const rows = directMemberIds.map((fromUserId) => ({
             party_id: partyId,
             from_user_id: fromUserId,
             to_user_id: leaderUserId,
@@ -120,5 +79,5 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    return NextResponse.json({ success: true, leaderUserId, totalVotes: voterIdList.length });
+    return NextResponse.json({ success: true, leaderUserId, totalVotes: directMemberIds.length });
 }

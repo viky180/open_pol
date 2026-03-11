@@ -6,7 +6,7 @@ interface Props {
     params: Promise<{ id: string }>;
 }
 
-// POST /api/parties/[id]/nominate — self-nominate for parent group leadership
+// POST /api/parties/[id]/nominate — step up to lead parent group
 export async function POST(request: NextRequest, { params }: Props) {
     const { id: toPartyId } = await params;
     const supabase = await createClient();
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: Props) {
 
     if (childPartyIds.length === 0) {
         return NextResponse.json(
-            { error: 'This group has no sub-groups. Only sub-group leaders can self-nominate.' },
+            { error: 'This group has no sub-groups. Only sub-group leaders can step up to lead.' },
             { status: 400 }
         );
     }
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest, { params }: Props) {
     return NextResponse.json({ nominated: true }, { status: 201 });
 }
 
-// DELETE /api/parties/[id]/nominate — withdraw self-nomination
+// DELETE /api/parties/[id]/nominate — withdraw leadership step-up
 export async function DELETE(request: NextRequest, { params }: Props) {
     const { id: toPartyId } = await params;
     const supabase = await createClient();

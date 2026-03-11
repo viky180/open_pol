@@ -1,0 +1,434 @@
+'use client';
+
+import Link from 'next/link';
+import type { OnboardingStatus } from '@/lib/onboarding';
+
+type GroupItem = {
+  id: string;
+  name: string;
+  memberCount: number;
+  category: string;
+  joinedAt: string;
+  lastActivityAt: string;
+  lastActivityPreview: string;
+};
+
+type Representation = {
+  partyId: string;
+  partyName: string;
+  leaderName: string | null;
+  trustExpiresInDays: number | null;
+} | null;
+
+type OnboardingStep = {
+  id: 'profile' | 'group';
+  label: string;
+  description: string;
+  done: boolean;
+  href: string;
+};
+
+function getRelativeTimeLabel(input: string) {
+  const target = new Date(input);
+  if (Number.isNaN(target.getTime())) return 'recently';
+
+  const diffMs = Date.now() - target.getTime();
+  const hours = Math.round(diffMs / (1000 * 60 * 60));
+  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  if (hours < 24) return `${Math.max(1, hours)}h ago`;
+  return `${Math.max(1, days)}d ago`;
+}
+
+function ResumeOnboardingCard({ onboardingStatus }: { onboardingStatus: OnboardingStatus | null }) {
+  const totalCount = onboardingStatus?.totalSteps ?? 2;
+  const doneCount = onboardingStatus?.progressCount ?? 0;
+  const progressPct = Math.round((doneCount / totalCount) * 100);
+  const steps: OnboardingStep[] = [
+    {
+      id: 'profile',
+      label: 'Complete your profile',
+      description: onboardingStatus?.hasDisplayName
+        ? onboardingStatus?.hasPincode
+          ? 'Your basic profile is ready. You can still update your details any time.'
+          : 'Your name is saved. Add a pincode during onboarding for better nearby group suggestions.'
+        : 'Add your name so people can recognize you when you join local issue groups.',
+      done: onboardingStatus?.hasDisplayName ?? false,
+      href: '/welcome?next=/',
+    },
+    {
+      id: 'group',
+      label: 'Choose a cause and join a group',
+      description: 'Choose a cause, compare active groups, or create the first group if none fit yet.',
+      done: onboardingStatus?.hasActiveMembership ?? false,
+      href: '/welcome?next=/',
+    },
+  ];
+
+  return (
+    <section className="card-glass p-5 sm:p-6">
+      <div className="editorial-section-head">
+        <span className="editorial-section-head__label">Your civic home</span>
+        <span className="editorial-section-head__rule" />
+      </div>
+
+      <div className="card p-5 sm:p-6">
+        {/* ── Header ── */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="badge border-accent/20 bg-accent/10 text-accent">
+            Continue onboarding
+          </span>
+          <span
+            className="text-[11px] uppercase tracking-[0.18em] text-text-muted"
+            style={{ fontFamily: 'var(--font-mono)' }}
+          >
+            {doneCount} of {totalCount} activation steps done
+          </span>
+        </div>
+
+        <h3
+          className="mt-4 text-2xl text-text-primary"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          Finish setup in one place
+        </h3>
+        <p className="mt-2 max-w-xl text-sm text-text-secondary">
+          New-user setup now lives in the welcome flow. Finish your basics there, then come back here once your first group is active.
+        </p>
+
+        {/* ── Progress bar ── */}
+        <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-border-primary">
+          <div
+            className="h-full rounded-full bg-accent transition-all duration-500"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+
+        {/* ── Steps ── */}
+        <ol className="mt-5 space-y-3">
+          {steps.map((step, idx) => {
+            const isDone = step.done;
+            const prevDone = idx === 0 || steps[idx - 1].done;
+            const isActive = !isDone && prevDone;
+            const isClickable = !isDone;
+
+            return (
+              <li
+                key={step.id}
+                className={`rounded-2xl border transition-colors duration-200 ${isDone
+                  ? 'border-success/20 bg-success/5'
+                  : isActive
+                    ? 'border-accent/25 bg-accent/[0.06]'
+                    : 'border-border-primary bg-bg-secondary/50'
+                  }`}
+              >
+                {isClickable ? (
+                  <Link
+                    href={step.href}
+                    className="group flex cursor-pointer items-start gap-4 p-4"
+                    aria-label={`${step.label} — continue onboarding`}
+                  >
+                    <div
+                      className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${isDone
+                        ? 'border-success/40 bg-success/15 text-success'
+                        : isActive
+                          ? 'border-accent/40 bg-accent/15 text-accent'
+                          : 'border-border-primary bg-bg-secondary text-text-muted'
+                        }`}
+                      style={{ fontFamily: 'var(--font-mono)' }}
+                    >
+                      {isDone ? '✓' : idx + 1}
+                    </div>
+
+                    {/* Step content */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`text-base font-semibold leading-snug ${isDone
+                            ? 'text-success line-through decoration-success/40'
+                            : isActive
+                              ? 'text-text-primary'
+                              : 'text-text-muted'
+                            } group-hover:text-accent group-hover:underline group-focus-visible:text-accent`}
+                        >
+                          {step.label}
+                        </span>
+                        {isDone && (
+                          <span className="badge border-success/20 bg-success/10 text-[10px] text-success">
+                            Done
+                          </span>
+                        )}
+                        {isActive && !isDone && (
+                          <span className="badge border-accent/20 bg-accent/10 text-[10px] text-accent">
+                            Up next
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-sm text-text-secondary">{step.description}</p>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="flex items-start gap-4 p-4">
+                    <div
+                      className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors ${isDone
+                        ? 'border-success/40 bg-success/15 text-success'
+                        : isActive
+                          ? 'border-accent/40 bg-accent/15 text-accent'
+                          : 'border-border-primary bg-bg-secondary text-text-muted'
+                        }`}
+                      style={{ fontFamily: 'var(--font-mono)' }}
+                    >
+                      {isDone ? '✓' : idx + 1}
+                    </div>
+
+                    {/* Step content */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`text-base font-semibold leading-snug ${isDone
+                            ? 'text-success line-through decoration-success/40'
+                            : isActive
+                              ? 'text-text-primary'
+                              : 'text-text-muted'
+                            }`}
+                        >
+                          {step.label}
+                        </span>
+                        {isDone && (
+                          <span className="badge border-success/20 bg-success/10 text-[10px] text-success">
+                            Done
+                          </span>
+                        )}
+                        {isActive && !isDone && (
+                          <span className="badge border-accent/20 bg-accent/10 text-[10px] text-accent">
+                            Up next
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-sm text-text-secondary">{step.description}</p>
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+
+        {onboardingStatus?.hasDisplayName && !onboardingStatus.hasPincode && (
+          <div className="mt-5 rounded-2xl border border-border-primary bg-bg-secondary/70 p-4 text-sm text-text-secondary">
+            Optional but helpful: add your pincode in onboarding so OpenPolitics can suggest more relevant nearby groups.
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <Link href="/welcome?next=/" className="btn btn-primary flex-1">
+            {onboardingStatus?.nextStep === 'group' ? 'Choose your first group' : 'Continue onboarding'}
+          </Link>
+          <Link href="/discover" className="btn btn-secondary flex-1">
+            Browse groups
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main export
+// ---------------------------------------------------------------------------
+export function MyGroupsCard({
+  groups,
+  representation,
+  actionCount,
+  onboardingStatus,
+}: {
+  groups: GroupItem[];
+  representation: Representation;
+  actionCount: number;
+  onboardingStatus: OnboardingStatus | null;
+}) {
+  const primaryGroup = representation?.partyId
+    ? groups.find((group) => group.id === representation.partyId) || groups[0]
+    : groups[0];
+
+  if (!groups.length) {
+    return <ResumeOnboardingCard onboardingStatus={onboardingStatus} />;
+  }
+
+  if (!primaryGroup) return null;
+
+  const joinedLabel = getRelativeTimeLabel(primaryGroup.joinedAt);
+  const lastActivity = getRelativeTimeLabel(primaryGroup.lastActivityAt);
+  const otherGroups = groups.filter((group) => group.id !== primaryGroup.id).slice(0, 3);
+
+  return (
+    <section className="card-glass p-5 sm:p-6">
+      <div className="editorial-section-head">
+        <span className="editorial-section-head__label">Your civic home</span>
+        <span className="editorial-section-head__count">{groups.length}</span>
+        <span className="editorial-section-head__rule" />
+      </div>
+
+      <div className="card p-5 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="badge border-primary/15 bg-primary/5 text-primary">Primary group</span>
+              {actionCount > 0 ? (
+                <span className="badge border-danger/20 bg-danger/10 text-danger">
+                  {actionCount} action{actionCount === 1 ? '' : 's'} pending
+                </span>
+              ) : (
+                <span className="badge border-success/20 bg-success/10 text-success">All clear</span>
+              )}
+            </div>
+            <div className="mt-4 flex min-w-0 items-start gap-3">
+              <div
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-accent/30 bg-accent/10 text-sm font-semibold text-accent"
+                style={{ fontFamily: 'var(--font-mono)' }}
+              >
+                {(primaryGroup.name[0] || 'G').toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p
+                  className="line-clamp-2 text-2xl text-text-primary"
+                  style={{ fontFamily: 'var(--font-display)' }}
+                >
+                  {primaryGroup.name}
+                </p>
+                <p className="mt-2 text-sm text-text-secondary">
+                  {actionCount > 0
+                    ? `${actionCount} action${actionCount === 1 ? '' : 's'} need your attention across your civic home. Start with this group.`
+                    : 'No urgent blockers right now. Open your group, catch up on changes, and keep momentum moving.'}
+                </p>
+                <p
+                  className="mt-2 text-xs uppercase tracking-[0.18em] text-text-muted"
+                  style={{ fontFamily: 'var(--font-mono)' }}
+                >
+                  Joined {joinedLabel}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="grid min-w-full grid-cols-2 gap-3 sm:min-w-[260px] lg:max-w-[290px] lg:grid-cols-1">
+            <div
+              className={`rounded-2xl border px-4 py-4 ${actionCount > 0 ? 'border-danger/20 bg-danger/5' : 'border-success/20 bg-success/5'}`}
+            >
+              <div
+                className="text-[11px] uppercase tracking-[0.18em] text-text-muted"
+                style={{ fontFamily: 'var(--font-mono)' }}
+              >
+                What needs attention
+              </div>
+              <div
+                className={`mt-2 text-lg font-semibold ${actionCount > 0 ? 'text-danger' : 'text-success'}`}
+              >
+                {actionCount > 0
+                  ? `${actionCount} action${actionCount === 1 ? '' : 's'} waiting`
+                  : 'No urgent actions'}
+              </div>
+              <p className="mt-2 text-sm text-text-secondary">
+                {actionCount > 0
+                  ? 'Review expiring trust votes and pending actions first.'
+                  : 'Use this time to review momentum and plan your next move.'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border-primary bg-bg-secondary/75 px-4 py-4">
+              <div
+                className="text-[11px] uppercase tracking-[0.18em] text-text-muted"
+                style={{ fontFamily: 'var(--font-mono)' }}
+              >
+                Last activity
+              </div>
+              <div className="mt-2 text-lg font-semibold text-text-primary">{lastActivity}</div>
+              <p className="mt-2 text-sm text-text-secondary">
+                Most recent update: {primaryGroup.lastActivityPreview || 'No recent update yet.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="editorial-subcard">
+            <div className="text-lg text-primary" style={{ fontFamily: 'var(--font-display)' }}>
+              {primaryGroup.memberCount.toLocaleString('en-IN')}
+            </div>
+            <div
+              className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted"
+              style={{ fontFamily: 'var(--font-mono)' }}
+            >
+              Members
+            </div>
+          </div>
+          <div className="editorial-subcard">
+            <div className="text-lg text-primary" style={{ fontFamily: 'var(--font-display)' }}>
+              {representation?.leaderName || 'Open'}
+            </div>
+            <div
+              className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted"
+              style={{ fontFamily: 'var(--font-mono)' }}
+            >
+              Representative
+            </div>
+          </div>
+          <div className="editorial-subcard">
+            <div className="text-lg text-primary" style={{ fontFamily: 'var(--font-display)' }}>
+              {groups.length > 1 ? `${groups.length - 1}+` : '0'}
+            </div>
+            <div
+              className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted"
+              style={{ fontFamily: 'var(--font-mono)' }}
+            >
+              Other groups
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-border-primary bg-bg-secondary/70 p-4">
+          <div
+            className="text-[11px] uppercase tracking-[0.2em] text-text-muted"
+            style={{ fontFamily: 'var(--font-mono)' }}
+          >
+            Latest update
+          </div>
+          <p className="mt-2 text-sm text-text-primary">
+            {primaryGroup.lastActivityPreview || 'No recent update yet.'}
+          </p>
+        </div>
+
+        {otherGroups.length > 0 && (
+          <div className="mt-4">
+            <div
+              className="text-[11px] uppercase tracking-[0.18em] text-text-muted"
+              style={{ fontFamily: 'var(--font-mono)' }}
+            >
+              Also active in
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {otherGroups.map((group) => (
+                <Link
+                  key={group.id}
+                  href={`/party/${group.id}`}
+                  className="badge transition hover:border-accent/30 hover:text-accent"
+                >
+                  {group.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <Link href={`/party/${primaryGroup.id}`} className="btn btn-primary flex-1">
+            Continue with group
+          </Link>
+          <Link href="/profile" className="btn btn-secondary flex-1">
+            Open profile
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}

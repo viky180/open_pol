@@ -68,7 +68,7 @@ export async function POST(request: NextRequest, { params }: Props) {
 
     if (leaderId !== effectiveUserId) {
         return NextResponse.json(
-            { error: 'Only the party leader can send advocacy emails' },
+            { error: 'Only the party leader can send letters' },
             { status: 403 }
         );
     }

@@ -3,14 +3,14 @@
 export function HowItsDifferent() {
     const features = [
         { label: 'Create a group', whatsapp: true, telegram: true, reddit: true, op: true },
-        { label: 'Attach under a parent group/community', whatsapp: false, telegram: false, reddit: false, op: true },
-        { label: 'Detach and become independent again', whatsapp: false, telegram: false, reddit: false, op: true },
-        { label: 'Reattach under a different parent later', whatsapp: false, telegram: false, reddit: false, op: true },
-        { label: 'Keep identity while attached', whatsapp: false, telegram: false, reddit: false, op: true },
-        { label: 'Support parent without forced merge', whatsapp: false, telegram: false, reddit: false, op: true },
-        { label: 'Trust-based representative selection', whatsapp: false, telegram: false, reddit: false, op: true },
-        { label: 'Petition parent group with demands', whatsapp: false, telegram: false, reddit: false, op: true },
-        { label: 'See your leverage (% of coalition)', whatsapp: false, telegram: false, reddit: false, op: true },
+        { label: 'Join a bigger movement', whatsapp: false, telegram: false, reddit: false, op: true },
+        { label: 'Go independent any time', whatsapp: false, telegram: false, reddit: false, op: true },
+        { label: 'Switch teams whenever you want', whatsapp: false, telegram: false, reddit: false, op: true },
+        { label: "Keep your group's identity", whatsapp: false, telegram: false, reddit: false, op: true },
+        { label: 'Support the bigger cause without losing yourselves', whatsapp: false, telegram: false, reddit: false, op: true },
+        { label: 'Choose who speaks for you', whatsapp: false, telegram: false, reddit: false, op: true },
+        { label: 'Push your priorities to the bigger group', whatsapp: false, telegram: false, reddit: false, op: true },
+        { label: "See your group's impact", whatsapp: false, telegram: false, reddit: false, op: true },
     ];
 
     return (
@@ -22,11 +22,11 @@ export function HowItsDifferent() {
                         className="mt-4 text-2xl sm:text-3xl font-bold text-text-primary"
                         style={{ fontFamily: 'var(--font-display)' }}
                     >
-                        Static groups vs dynamic coalition architecture
+                        Static groups vs groups that actually work together
                     </h2>
                     <p className="text-text-secondary mt-2 max-w-2xl mx-auto">
-                        Most platforms keep groups fixed forever. Open Politics gives every group leverage:
-                        create, coordinate, petition, and walk away when not served.
+                        Most platforms keep groups stuck in place. Open Politics lets every group
+                        create, coordinate, push for what they need, and walk away when not served.
                     </p>
                 </div>
 

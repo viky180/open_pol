@@ -9,22 +9,6 @@ interface MemberStatusCardProps {
     onExitClick: () => void;
 }
 
-function getDaysRemaining(expiresAt: string): number {
-    const now = new Date();
-    const expiry = new Date(expiresAt);
-    const diffMs = expiry.getTime() - now.getTime();
-    return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-}
-
-function formatExpiryDate(date: string): string {
-    const expiry = new Date(date);
-    return expiry.toLocaleDateString('en-IN', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
-}
-
 function formatMemberSince(date: string): string {
     const joined = new Date(date);
     const now = new Date();
@@ -40,14 +24,10 @@ function formatMemberSince(date: string): string {
 
 export function MemberStatusCard({
     trustedLeaderName,
-    voteExpiresAt,
     memberSince,
     onManageTrustClick,
     onExitClick,
 }: MemberStatusCardProps) {
-    const daysRemaining = voteExpiresAt ? getDaysRemaining(voteExpiresAt) : null;
-    const expiryDate = voteExpiresAt ? formatExpiryDate(voteExpiresAt) : null;
-
     return (
         <div className="card-glass mb-6">
             <div className="text-xs uppercase tracking-[0.2em] text-text-muted mb-3">
@@ -55,29 +35,19 @@ export function MemberStatusCard({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Your trust choice */}
                 <div className="rounded-xl border border-border-primary bg-bg-tertiary p-4">
-                    <div className="text-xs text-text-muted mb-1">Your trusted representative</div>
+                    <div className="text-xs text-text-muted mb-1">Your trusted voice</div>
                     <div className="font-medium text-text-primary">
-                        {trustedLeaderName || 'No representative chosen'}
+                        {trustedLeaderName || 'No voice chosen'}
                     </div>
-                    {voteExpiresAt && daysRemaining !== null && (
+                    {trustedLeaderName && (
                         <div className="text-xs text-text-muted mt-1">
-                            {daysRemaining > 0 ? (
-                                <>
-                                    Expires on {expiryDate}
-                                    {daysRemaining <= 7 && (
-                                        <span className="text-warning ml-1">(renew soon)</span>
-                                    )}
-                                </>
-                            ) : (
-                                <span className="text-warning">Choice expired</span>
-                            )}
+                            Your support for <span className="text-text-secondary">{trustedLeaderName}</span> is active.
+                            You&apos;ll be asked to confirm it in 6 months.
                         </div>
                     )}
                 </div>
 
-                {/* Member Since */}
                 <div className="rounded-xl border border-border-primary bg-bg-tertiary p-4">
                     <div className="text-xs text-text-muted mb-1">Member since</div>
                     <div className="font-medium text-text-primary">
@@ -86,13 +56,12 @@ export function MemberStatusCard({
                 </div>
             </div>
 
-            {/* Actions */}
             <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-border-primary">
                 <button
                     onClick={onManageTrustClick}
                     className="text-sm text-primary hover:underline"
                 >
-                    Choose who speaks for you →
+                    Choose who speaks for you -&gt;
                 </button>
                 <button
                     onClick={onExitClick}

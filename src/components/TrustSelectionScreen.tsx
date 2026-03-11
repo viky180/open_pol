@@ -15,13 +15,7 @@ interface TrustSelectionScreenProps {
     onClose?: () => void;
 }
 
-// Duration options in days
-const TRUST_DURATIONS = [
-    { value: 30, label: '30 days' },
-    { value: 90, label: '3 months' },
-    { value: 180, label: '6 months' },
-    { value: 365, label: '1 year' },
-];
+const RECONFIRMATION_DAYS = 180;
 
 export function TrustSelectionScreen({
     partyId,
@@ -33,13 +27,11 @@ export function TrustSelectionScreen({
     onClose,
 }: TrustSelectionScreenProps) {
     const [selectedMember, setSelectedMember] = useState<string | null>(votedFor);
-    const [duration, setDuration] = useState(90); // Default: 3 months
     const [loading, setLoading] = useState(false);
     const supabase = createClient();
 
-    // Sort members by current trust (descending)
     const sortedMembers = [...members]
-        .filter(m => m.user_id !== currentUserId) // Can't trust yourself
+        .filter((member) => member.user_id !== currentUserId)
         .sort((a, b) => b.trust_votes - a.trust_votes);
 
     const handleConfirmTrust = async () => {
@@ -47,7 +39,6 @@ export function TrustSelectionScreen({
         setLoading(true);
 
         try {
-            // Remove existing vote first
             if (votedFor) {
                 await supabase
                     .from('trust_votes')
@@ -56,9 +47,8 @@ export function TrustSelectionScreen({
                     .eq('from_user_id', currentUserId);
             }
 
-            // Create new trust vote with expiry
             const expiresAt = new Date();
-            expiresAt.setDate(expiresAt.getDate() + duration);
+            expiresAt.setDate(expiresAt.getDate() + RECONFIRMATION_DAYS);
 
             await supabase
                 .from('trust_votes')
@@ -72,66 +62,50 @@ export function TrustSelectionScreen({
             onVoteChange();
             onClose?.();
         } catch (err) {
-            console.error('Trust vote error:', err);
+            console.error('Backing error:', err);
         } finally {
             setLoading(false);
         }
     };
 
     const hasChanged = selectedMember !== votedFor;
+    const selectedMemberName =
+        sortedMembers.find((member) => member.user_id === selectedMember)?.display_name || 'this member';
 
     return (
         <div className="max-w-lg mx-auto" id="trust-selection-screen">
-            {/* Header */}
             <div className="mb-6">
-                <h2 className="text-xl font-semibold text-text-primary mb-2">
-                    Choose who speaks for you
-                </h2>
+                <h2 className="text-xl font-semibold text-text-primary mb-2">Choose who speaks for you</h2>
                 <p className="text-sm text-text-secondary">
-                    Select a member to speak on your behalf in{' '}
-                    <span className="font-medium">{partyName}</span>.
+                    Select a member to speak on your behalf in <span className="font-medium">{partyName}</span>.
                 </p>
             </div>
 
-            {/* Explanation Card */}
             <div className="rounded-xl border border-border-primary bg-bg-tertiary p-4 mb-6">
                 <div className="flex flex-col gap-3">
                     <div className="flex items-start gap-3">
-                        <span className="text-lg mt-0.5">↩️</span>
+                        <span className="text-lg mt-0.5">Back</span>
                         <div>
-                            <div className="text-sm font-medium text-text-primary">
-                                You can leave anytime
-                            </div>
-                            <div className="text-xs text-text-muted">
-                                Your choice is always reversible.
-                            </div>
+                            <div className="text-sm font-medium text-text-primary">You can leave anytime</div>
+                            <div className="text-xs text-text-muted">Your choice is always reversible.</div>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">
-                        <span className="text-lg mt-0.5">⏳</span>
+                        <span className="text-lg mt-0.5">Time</span>
                         <div>
-                            <div className="text-sm font-medium text-text-primary">
-                                Your choice expires automatically
-                            </div>
-                            <div className="text-xs text-text-muted">
-                                We’ll remind you before it expires.
-                            </div>
+                            <div className="text-sm font-medium text-text-primary">Support stays active</div>
+                            <div className="text-xs text-text-muted">We&apos;ll ask you to confirm it again in 6 months.</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Candidate List */}
             <div className="mb-6">
-                <div className="text-xs uppercase tracking-[0.15em] text-text-muted mb-3">
-                    Members
-                </div>
+                <div className="text-xs uppercase tracking-[0.15em] text-text-muted mb-3">Members</div>
 
                 {sortedMembers.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border-primary bg-bg-secondary p-6 text-center">
-                        <p className="text-sm text-text-muted">
-                            No other members to trust yet.
-                        </p>
+                        <p className="text-sm text-text-muted">No other members to trust yet.</p>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2">
@@ -150,7 +124,6 @@ export function TrustSelectionScreen({
                                         }
                                     `}
                                 >
-                                    {/* Radio button */}
                                     <input
                                         type="radio"
                                         name="trust-member"
@@ -160,7 +133,6 @@ export function TrustSelectionScreen({
                                         className="w-4 h-4 text-primary accent-primary"
                                     />
 
-                                    {/* Member info */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2">
                                             <span className="font-medium text-text-primary truncate">
@@ -168,7 +140,7 @@ export function TrustSelectionScreen({
                                             </span>
                                             {member.is_leader && (
                                                 <span className="text-[10px] uppercase tracking-wide text-primary">
-                                                    Current representative
+                                                    Current voice
                                                 </span>
                                             )}
                                         </div>
@@ -177,13 +149,12 @@ export function TrustSelectionScreen({
                                         </div>
                                     </div>
 
-                                    {/* Profile link */}
                                     <Link
                                         href={`/member/${member.user_id}`}
-                                        onClick={(e) => e.stopPropagation()}
+                                        onClick={(event) => event.stopPropagation()}
                                         className="text-xs text-text-muted hover:text-primary transition-colors"
                                     >
-                                        View profile →
+                                        View profile -&gt;
                                     </Link>
                                 </label>
                             );
@@ -192,42 +163,16 @@ export function TrustSelectionScreen({
                 )}
             </div>
 
-            {/* Duration Selector */}
             {selectedMember && (
                 <div className="mb-8">
-                    <div className="text-xs uppercase tracking-[0.15em] text-text-muted mb-3">
-                        Choice duration
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {TRUST_DURATIONS.map((opt) => (
-                            <button
-                                key={opt.value}
-                                onClick={() => setDuration(opt.value)}
-                                className={`
-                                    px-3 py-2 rounded-lg text-sm font-medium
-                                    transition-all duration-200 border
-                                    ${duration === opt.value
-                                        ? 'border-primary bg-primary/10 text-primary'
-                                        : 'border-border-primary bg-bg-card text-text-secondary hover:border-border-secondary'
-                                    }
-                                `}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
-                    </div>
-                    <p className="text-xs text-text-muted mt-2">
-                        Your choice will expire on{' '}
-                        {new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                        })}
+                    <div className="text-xs uppercase tracking-[0.15em] text-text-muted mb-3">Support status</div>
+                    <p className="text-sm text-text-secondary">
+                        Your support for <span className="font-medium text-text-primary">{selectedMemberName}</span> is active.
+                        You&apos;ll be asked to confirm it in 6 months.
                     </p>
                 </div>
             )}
 
-            {/* Action Buttons */}
             <div className="flex flex-col gap-3">
                 <button
                     onClick={handleConfirmTrust}

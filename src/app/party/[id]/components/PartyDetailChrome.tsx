@@ -134,7 +134,7 @@ export function LeaderSnapshotCard({ leader, leaderTrustLine }: LeaderSnapshotCa
         <div className="brand-panel p-5 mb-6">
             <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-medium text-text-muted uppercase tracking-wide">
-                    Current Representative
+                    Current Voice
                 </span>
                 {leader && (
                     <span className="text-xs text-success font-medium">
@@ -163,7 +163,7 @@ export function LeaderSnapshotCard({ leader, leaderTrustLine }: LeaderSnapshotCa
                     </div>
                     <div>
                         <div className="font-medium text-text-secondary">
-                            No representative yet
+                            No voice yet
                         </div>
                         <div className="text-sm text-text-muted">
                             Join and vote to establish one
@@ -183,7 +183,7 @@ export function LeadershipHowItWorks() {
             </summary>
             <ul className="mt-3 p-4 rounded-xl bg-bg-tertiary/50 space-y-2 list-disc list-inside">
                 <li>Join with one active membership at a time.</li>
-                <li>Vote to trust someone as representative.</li>
+                <li>Back someone as your voice.</li>
                 <li>Trust expires automatically and cannot become permanent power.</li>
                 <li>Leave anytime with immediate effect.</li>
             </ul>
@@ -234,7 +234,7 @@ export function PartyMembershipActions({
                     href={createForkHref}
                     className={joinClasses('btn btn-secondary w-full', isSidebar ? 'mb-3' : 'mt-2')}
                 >
-                    Fork this group
+                    Challenge this group
                 </Link>
             )}
             {hasMembershipElsewhere && (
@@ -282,7 +282,7 @@ export function JoinConfirmationBanner({
                     onClick={onChooseRepresentative}
                     className="btn btn-primary btn-sm"
                 >
-                    Choose a representative
+                    Choose a voice
                 </button>
                 <button
                     type="button"

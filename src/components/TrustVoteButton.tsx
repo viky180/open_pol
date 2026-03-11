@@ -76,9 +76,9 @@ export function TrustVoteButton({
             onClick={handleVote}
             disabled={loading}
             className={`btn btn-sm ${isVotedForThis ? 'btn-danger' : 'btn-success'} min-w-[100px]`}
-            title={isVotedForThis ? 'Remove your choice' : `Choose ${memberName} to speak for you`}
+            title={isVotedForThis ? 'Remove your backing' : `Back ${memberName} as your voice`}
         >
-            {loading ? '...' : isVotedForThis ? '✋ Remove choice' : '🗳️ Choose'}
+            {loading ? '...' : isVotedForThis ? 'Remove backing' : '👍 Back'}
         </button>
     );
 }
@@ -144,7 +144,7 @@ export function MemberList({
             {visibleMembers.map((member) => (
                 <div
                     key={member.user_id}
-                    className={`card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 ${member.is_leader ? 'border-primary bg-primary/10' : ''} ${member.is_subgroup_leader ? 'border-primary/30' : ''}`}
+                    className={`card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 ${member.is_leader ? 'border-primary bg-primary/10' : ''}`}
                 >
                     <div className="flex items-center gap-3">
                         <div className={`avatar avatar-sm ${member.is_leader ? 'leader-badge' : ''}`}>
@@ -155,22 +155,12 @@ export function MemberList({
                                 {member.display_name || 'Anonymous'}
                                 {member.is_leader && (
                                     <span className="ml-2 text-xs text-secondary">
-                                        Representative
-                                    </span>
-                                )}
-                                {member.is_subgroup_leader && (
-                                    <span className="ml-2 text-xs text-primary font-medium">
-                                        🏛️ Sub-group leader
+                                        Voice
                                     </span>
                                 )}
                             </div>
-                            {member.is_subgroup_leader && member.subgroup_name && (
-                                <div className="text-xs text-text-muted">
-                                    Leads: {member.subgroup_name}
-                                </div>
-                            )}
                             <div className="text-xs text-text-muted">
-                                {member.trust_votes} trust{member.trust_votes !== 1 ? ' signals' : ' signal'}
+                                {member.trust_votes} backer{member.trust_votes !== 1 ? 's' : ''}
                             </div>
                         </div>
                     </div>

@@ -12,7 +12,6 @@ import {
 export type FeedItemType =
     | 'question'
     | 'action_email'
-    | 'action_escalation'
     | 'milestone'
     | 'merge'
     | 'post'
@@ -59,14 +58,13 @@ function formatRelativeTime(dateString: string): string {
 function getTypeLabel(type: FeedItemType): string {
     switch (type) {
         case 'question': return 'Question';
-        case 'action_email': return 'Action: Email';
-        case 'action_escalation': return 'Action: Escalation';
+        case 'action_email': return 'Email Action';
         case 'milestone': return 'Milestone';
         case 'merge': return 'Merge';
         case 'post': return 'Post';
         case 'new_member': return 'New Member';
         case 'invitation_accepted': return 'Invite Accepted';
-        case 'trust_milestone': return 'Trust Milestone';
+        case 'trust_milestone': return 'Backing Milestone';
         case 'new_party': return 'New Group';
         default: return 'Update';
     }
@@ -74,9 +72,9 @@ function getTypeLabel(type: FeedItemType): string {
 
 function getScopeLabel(scope?: FeedItemData['scope']): string | null {
     switch (scope) {
-        case 'member': return 'Your party';
+        case 'member': return 'Your group';
         case 'location': return 'Your area';
-        case 'category': return 'Your category';
+        case 'category': return 'Similar issues';
         case 'global': return 'Global';
         default: return null;
     }
@@ -87,7 +85,6 @@ function getBadgeStyles(type: FeedItemType): string {
         case 'question':
             return 'bg-primary/10 text-primary border-primary/20';
         case 'action_email':
-        case 'action_escalation':
             return 'bg-[#fff7ed] text-[#c2410c] border-[#fed7aa]';
         case 'milestone':
         case 'trust_milestone':
@@ -151,7 +148,7 @@ export function FeedItem({ item, onSupportChange, currentUserId }: FeedItemProps
 
                         <div className="flex flex-wrap items-center gap-2 mb-2 min-w-0">
                             <span className="inline-flex max-w-full items-center text-xs text-text-secondary px-2 py-0.5 rounded-md bg-bg-tertiary border border-border-primary">
-                                <span className="shrink-0 mr-1">{item.sourceType === 'federation' ? 'Federation:' : 'Group:'}</span>
+                                <span className="shrink-0 mr-1">{item.sourceType === 'federation' ? 'Network:' : 'Group:'}</span>
                                 <span className="truncate">{item.sourceName}</span>
                             </span>
                             {scopeLabel && (

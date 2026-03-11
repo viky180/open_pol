@@ -102,7 +102,7 @@ export function NonMemberGroupPreview({
                 {/* Leader Section */}
                 <div className="rounded-xl border border-border-primary bg-bg-tertiary p-4 mb-6">
                     <div className="text-xs uppercase tracking-[0.2em] text-text-muted mb-2">
-                        Current representative
+                        Current voice
                     </div>
                     {leader ? (
                         <div className="flex items-center justify-between">
@@ -123,7 +123,7 @@ export function NonMemberGroupPreview({
                         </div>
                     ) : (
                         <div className="text-sm text-text-muted">
-                            No representative yet. Join and choose to help one emerge.
+                            No voice yet. Join and choose to help one emerge.
                         </div>
                     )}
                 </div>

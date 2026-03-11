@@ -251,9 +251,14 @@ export default function DemoPageTwo() {
                         <Link href="/demo" className="text-sm text-text-muted hover:text-primary transition-colors">
                             {'<-'} Back to Demo 1
                         </Link>
-                        <Link href="/" className="text-sm text-text-muted hover:text-primary transition-colors">
-                            Home
-                        </Link>
+                        <div className="flex items-center gap-3">
+                            <Link href="/demo-3" className="text-sm text-primary hover:underline">
+                                View Demo 3: Organic Employment Minister {'->'}
+                            </Link>
+                            <Link href="/" className="text-sm text-text-muted hover:text-primary transition-colors">
+                                Home
+                            </Link>
+                        </div>
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
@@ -591,7 +596,7 @@ export default function DemoPageTwo() {
                             </div>
 
                             <div className="rounded-xl border border-border-primary bg-bg-card p-4">
-                                <h4 className="font-semibold text-text-primary mb-3">Trust vote shift (before vs after)</h4>
+                                <h4 className="font-semibold text-text-primary mb-3">Backing shift (before vs after)</h4>
                                 <div className="space-y-2">
                                     {rankedStateLeaders.map((leader) => (
                                         <div key={leader.id} className="rounded-lg border border-border-primary bg-bg-secondary p-3">
@@ -616,7 +621,7 @@ export default function DemoPageTwo() {
                                 <p className="text-xs uppercase tracking-[0.14em] text-success">Leadership change after trust review</p>
                                 <h3 className="text-2xl font-bold text-text-primary mt-2">{trustReviewWinner.name}</h3>
                                 <p className="text-sm text-text-secondary mt-2">
-                                    The earlier runner-up now emerges as Bihar student leader after gaining transferable trust votes.
+                                    The earlier runner-up now emerges as Bihar student leader after gaining transferable backing.
                                 </p>
                                 <p className="text-sm text-text-secondary mt-1">
                                     Additional trust received: <span className="font-semibold text-text-primary">{supportTransferred.toLocaleString('en-IN')}</span>
@@ -692,7 +697,7 @@ export default function DemoPageTwo() {
                                     Leadership stays accountable because trust can be revoked. Strong performers can rise from runner-up to top leader and then transition to mainstream elections with transparent student support.
                                 </p>
                                 <p className="text-sm text-text-secondary mt-2">
-                                    Total Bihar trust votes considered in review: {trustReviewTotalVotes.toLocaleString('en-IN')}.
+                                    Total Bihar backing considered in review: {trustReviewTotalVotes.toLocaleString('en-IN')}.
                                 </p>
                             </div>
                         </div>

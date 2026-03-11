@@ -36,14 +36,19 @@ export function SectionHeader({
     gradientClassName: string;
     glowClassName: string;
 }) {
+    const isEmoji = icon.length > 1;
     return (
         <div className={`relative overflow-hidden rounded-2xl p-6 border border-border-primary ${gradientClassName}`}>
             <div className={`absolute w-32 h-32 rounded-full blur-2xl ${glowClassName}`} />
             <div className="relative">
                 <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white text-lg">
-                        {icon}
-                    </div>
+                    {isEmoji ? (
+                        <span className="text-2xl" role="img" aria-hidden="true">{icon}</span>
+                    ) : (
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white text-lg">
+                            {icon}
+                        </div>
+                    )}
                     <h2 className="text-xl font-bold text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>{title}</h2>
                 </div>
                 <p className="text-text-muted max-w-xl">{description}</p>
@@ -59,6 +64,7 @@ export function JoinToParticipateCard({
     actionLabel,
     actionDisabled,
     onAction,
+    gradient,
 }: {
     icon: string;
     title: string;
@@ -66,10 +72,11 @@ export function JoinToParticipateCard({
     actionLabel: string;
     actionDisabled: boolean;
     onAction?: () => void;
+    gradient?: boolean;
 }) {
     return (
-        <div className="text-center p-8 rounded-2xl border-2 border-dashed border-border-secondary bg-bg-tertiary/50">
-            <div className="text-4xl mb-4">{icon}</div>
+        <div className={`text-center p-8 rounded-2xl border-2 border-dashed border-border-secondary ${gradient ? 'bg-gradient-to-br from-primary/5 to-bg-tertiary/50' : 'bg-bg-tertiary/50'}`}>
+            <div className="text-5xl mb-4">{icon}</div>
             <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
             <p className="text-text-muted mb-4 max-w-md mx-auto">{description}</p>
             <button
@@ -84,10 +91,14 @@ export function JoinToParticipateCard({
     );
 }
 
-export function StatTile({ value, label, valueClassName }: { value: string | number; label: string; valueClassName?: string }) {
+export function StatTile({ value, label, valueClassName, trend }: { value: string | number; label: string; valueClassName?: string; trend?: 'up' | 'down' | null }) {
     return (
         <div className="p-4 rounded-xl bg-bg-card border border-border-primary text-center">
-            <div className={`text-2xl font-bold ${valueClassName || 'text-text-primary'}`}>{value}</div>
+            <div className={`text-2xl font-bold flex items-center justify-center gap-1 ${valueClassName || 'text-text-primary'}`}>
+                {value}
+                {trend === 'up' && <span className="text-success text-lg">▲</span>}
+                {trend === 'down' && <span className="text-danger text-lg">▼</span>}
+            </div>
             <div className="text-xs text-text-muted mt-1">{label}</div>
         </div>
     );
@@ -107,12 +118,14 @@ export function EmptyState({
     description,
     actionLabel,
     onAction,
+    variant,
 }: {
     icon: string;
     title: string;
     description: string;
     actionLabel?: string;
     onAction?: () => void;
+    variant?: 'primary' | 'secondary';
 }) {
     return (
         <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl border-2 border-dashed border-border-secondary/50 bg-bg-tertiary/30">
@@ -125,7 +138,7 @@ export function EmptyState({
                 <button
                     type="button"
                     onClick={onAction}
-                    className="btn btn-secondary btn-sm"
+                    className={`btn ${variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
                 >
                     {actionLabel}
                 </button>

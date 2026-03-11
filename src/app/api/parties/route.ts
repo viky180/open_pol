@@ -1,7 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminUserId } from '@/lib/admin';
-import { LOCATION_SCOPE_LEVELS, getLocationScopeRank } from '@/types/database';
+import {
+    CREATION_LOCATION_SCOPES,
+    LOCATION_SCOPE_LEVELS,
+    isCreationLocationScope,
+    isValidHierarchyScopeTransition,
+} from '@/types/database';
 
 const VALID_LOCATION_SCOPES = LOCATION_SCOPE_LEVELS.map(l => l.value);
 
@@ -149,6 +154,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
         issue_text,
+        is_founding_group,
         title_image_url,
         pincodes,
         lat,
@@ -164,6 +170,7 @@ export async function POST(request: NextRequest) {
         block_name,
         panchayat_name,
         village_name,
+        issue_id,
     } = body;
 
     // Validation
@@ -272,10 +279,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Please enter village name for village-level party' }, { status: 400 });
     }
 
+    // Validate issue_id if provided and allow parent inheritance below.
+    let resolvedIssueId: string | null = null;
+    if (issue_id && typeof issue_id === 'string') {
+        const { data: issueRow } = await supabase
+            .from('issues')
+            .select('id')
+            .eq('id', issue_id)
+            .maybeSingle();
+        if (!issueRow) {
+            return NextResponse.json({ error: 'Referenced issue not found' }, { status: 404 });
+        }
+        resolvedIssueId = issueRow.id;
+    }
+
     if (parent_party_id) {
         const { data: parentParty } = await supabase
             .from('parties')
-            .select('location_scope')
+            .select('location_scope, issue_id')
             .eq('id', parent_party_id)
             .maybeSingle();
 
@@ -283,16 +304,28 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Parent party not found' }, { status: 404 });
         }
 
-        const parentRank = getLocationScopeRank(parentParty.location_scope || 'district');
-        const childRank = getLocationScopeRank(resolvedScope);
-        const allowed = childRank === parentRank + 1;
+        const allowed = isValidHierarchyScopeTransition(parentParty.location_scope || 'district', resolvedScope);
 
         if (!allowed) {
             return NextResponse.json(
-                { error: 'Child party scope must be exactly one level below parent scope.' },
+                { error: 'Child party scope is not valid for the selected parent scope.' },
                 { status: 400 }
             );
         }
+
+        // Inherit issue_id from parent if not explicitly provided
+        if (!issue_id && parentParty.issue_id) {
+            resolvedIssueId = parentParty.issue_id;
+        }
+    }
+
+    // Launch-phase creation policy:
+    // only allow creating national/state/district/village groups.
+    if (!isCreationLocationScope(resolvedScope)) {
+        return NextResponse.json(
+            { error: `location_scope must be one of ${CREATION_LOCATION_SCOPES.join(', ')} during launch` },
+            { status: 400 }
+        );
     }
 
     if (fork_of) {
@@ -304,13 +337,6 @@ export async function POST(request: NextRequest) {
 
         if (!sourceParty) {
             return NextResponse.json({ error: 'Fork source party not found' }, { status: 404 });
-        }
-
-        if (!sourceParty.parent_party_id) {
-            return NextResponse.json(
-                { error: 'Fork can only be created from a party that has a parent' },
-                { status: 400 }
-            );
         }
 
         if ((parent_party_id || null) !== sourceParty.parent_party_id) {
@@ -326,6 +352,15 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+
+        if (!resolvedIssueId) {
+            const { data: forkSourceIssue } = await supabase
+                .from('parties')
+                .select('issue_id')
+                .eq('id', fork_of)
+                .maybeSingle();
+            resolvedIssueId = forkSourceIssue?.issue_id || resolvedIssueId;
+        }
     }
 
     // Create party
@@ -338,8 +373,10 @@ export async function POST(request: NextRequest) {
             lat: validLat ? lat : null,
             lng: validLng ? lng : null,
             created_by: user.id,
+            is_founding_group: Boolean(is_founding_group),
             category_id: category_id || null,
             parent_party_id: parent_party_id || null,
+            issue_id: resolvedIssueId,
             node_type: resolvedNodeType,
             location_scope: resolvedScope,
             location_label: computedLocationLabel || null,

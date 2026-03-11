@@ -10,7 +10,6 @@ type FeedScope = 'member' | 'location' | 'category' | 'global';
 type UnifiedFeedType =
     | 'question'
     | 'action_email'
-    | 'action_escalation'
     | 'milestone'
     | 'merge'
     | 'post'
@@ -49,15 +48,6 @@ type EmailRow = {
     sent_at: string | null;
     created_at: string;
     parties: { issue_text: string } | { issue_text: string }[] | null;
-};
-
-type EscalationRow = {
-    id: string;
-    source_party_id: string;
-    target_party_id: string;
-    created_at: string;
-    source: { issue_text: string } | { issue_text: string }[] | null;
-    target: { issue_text: string } | { issue_text: string }[] | null;
 };
 
 type MilestoneRow = {
@@ -203,36 +193,10 @@ export async function GET() {
                     partyId: row.party_id,
                     partyName: shortName(issueText),
                     scope: 'global',
-                    title: `Email sent: ${row.subject}`,
-                    preview: row.recipient_name ? `Sent to ${row.recipient_name}` : 'Advocacy email sent',
+                    title: `Letter sent: ${row.subject}`,
+                    preview: row.recipient_name ? `Sent to ${row.recipient_name}` : 'Letter sent',
                     timestamp: row.sent_at || row.created_at || new Date().toISOString(),
                     linkUrl: `/party/${row.party_id}`,
-                });
-            });
-        }
-
-        async function fetchEscalations(limit: number) {
-            const { data } = await supabase
-                .from('escalations')
-                .select('id, source_party_id, target_party_id, created_at, source:source_party_id(issue_text), target:target_party_id(issue_text)')
-                .order('created_at', { ascending: false })
-                .limit(limit);
-            (data || []).forEach((row: EscalationRow) => {
-                const source = Array.isArray(row.source) ? row.source[0] : row.source;
-                const target = Array.isArray(row.target) ? row.target[0] : row.target;
-                const sourceIssue = source?.issue_text ?? 'Unknown';
-                const targetIssue = target?.issue_text ?? 'Unknown';
-                push({
-                    id: row.id,
-                    type: 'action_escalation',
-                    partyId: row.source_party_id,
-                    partyName: shortName(sourceIssue),
-                    scope: 'global',
-                    title: 'Issue escalated',
-                    preview: `Escalated to: ${targetIssue.slice(0, 80)}${targetIssue.length > 80 ? '...' : ''}`,
-                    timestamp: row.created_at,
-                    linkUrl: `/party/${row.source_party_id}`,
-                    meta: { targetPartyId: row.target_party_id },
                 });
             });
         }
@@ -317,7 +281,6 @@ export async function GET() {
         await Promise.all([
             fetchQuestions(takeGlobal),
             fetchEmails(takeGlobal),
-            fetchEscalations(takeGlobal),
             fetchMilestones(takeGlobal),
             fetchMerges(takeGlobal),
             fetchPosts(takeGlobal),
@@ -586,41 +549,10 @@ export async function GET() {
                 partyId: row.party_id,
                 partyName: shortName(issueText),
                 scope,
-                title: `Email sent: ${row.subject}`,
-                preview: row.recipient_name ? `Sent to ${row.recipient_name}` : 'Advocacy email sent',
+                title: `Letter sent: ${row.subject}`,
+                preview: row.recipient_name ? `Sent to ${row.recipient_name}` : 'Letter sent',
                 timestamp: row.sent_at || row.created_at || new Date().toISOString(),
                 linkUrl: `/party/${row.party_id}`,
-            });
-        });
-    }
-
-    async function fetchEscalations(partyIds: string[] | null, scope: FeedScope, limit: number) {
-        let q = supabase
-            .from('escalations')
-            .select('id, source_party_id, target_party_id, created_at, source:source_party_id(issue_text), target:target_party_id(issue_text)')
-            .order('created_at', { ascending: false })
-            .limit(limit);
-        // Filter by source party (simpler + avoids UUID quoting issues in or() strings).
-        if (partyIds && partyIds.length > 0) q = q.in('source_party_id', partyIds);
-        if (partyIds && partyIds.length === 0) return;
-
-        const { data } = await q;
-        (data || []).forEach((row: EscalationRow) => {
-            const source = Array.isArray(row.source) ? row.source[0] : row.source;
-            const target = Array.isArray(row.target) ? row.target[0] : row.target;
-            const sourceIssue = source?.issue_text ?? 'Unknown';
-            const targetIssue = target?.issue_text ?? 'Unknown';
-            push({
-                id: row.id,
-                type: 'action_escalation',
-                partyId: row.source_party_id,
-                partyName: shortName(sourceIssue),
-                scope,
-                title: 'Issue escalated',
-                preview: `Escalated to: ${targetIssue.slice(0, 80)}${targetIssue.length > 80 ? '...' : ''}`,
-                timestamp: row.created_at,
-                linkUrl: `/party/${row.source_party_id}`,
-                meta: { targetPartyId: row.target_party_id },
             });
         });
     }
@@ -808,7 +740,7 @@ export async function GET() {
                 partyId: row.party_id,
                 partyName: shortName(issueText),
                 scope,
-                title: `${leaderName} reached ${row.threshold} trust votes`,
+                title: `${leaderName} reached ${row.threshold} backers`,
                 preview: `A growing sign of trust in "${issueText.slice(0, 60)}${issueText.length > 60 ? '...' : ''}"`,
                 timestamp: row.created_at,
                 linkUrl: `/party/${row.party_id}`,
@@ -884,7 +816,6 @@ export async function GET() {
     await Promise.all([
         fetchQuestions(memberIds, 'member', takeMember),
         fetchEmails(memberIds, 'member', takeMember),
-        fetchEscalations(memberIds, 'member', takeMember),
         fetchMilestones(memberIds, 'member', takeMember),
         fetchMerges(memberIds, 'member', takeMember),
         fetchPosts(memberIds, 'member', takeMember),
@@ -893,7 +824,6 @@ export async function GET() {
 
         fetchQuestions(locationIds, 'location', takeLocation),
         fetchEmails(locationIds, 'location', takeLocation),
-        fetchEscalations(locationIds, 'location', takeLocation),
         fetchMilestones(locationIds, 'location', takeLocation),
         fetchMerges(locationIds, 'location', takeLocation),
         fetchPosts(locationIds, 'location', takeLocation),
@@ -902,7 +832,6 @@ export async function GET() {
 
         fetchQuestions(categoryIds, 'category', takeCategory),
         fetchEmails(categoryIds, 'category', takeCategory),
-        fetchEscalations(categoryIds, 'category', takeCategory),
         fetchMilestones(categoryIds, 'category', takeCategory),
         fetchMerges(categoryIds, 'category', takeCategory),
         fetchPosts(categoryIds, 'category', takeCategory),
@@ -920,7 +849,6 @@ export async function GET() {
         await Promise.all([
             fetchQuestions(null, 'global', globalLimit),
             fetchEmails(null, 'global', globalLimit),
-            fetchEscalations(null, 'global', globalLimit),
             fetchMilestones(null, 'global', globalLimit),
             fetchMerges(null, 'global', globalLimit),
             fetchPosts(null, 'global', globalLimit),

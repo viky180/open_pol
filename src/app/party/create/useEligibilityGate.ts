@@ -66,7 +66,9 @@ export function useEligibilityGate({
         !!parentPartyId &&
         (isAdmin || (!!activeMembershipPartyId && activeMembershipPartyId === parentPartyId));
 
-    const hasBlockingMembership = !!activeMembershipPartyId && !canCreateChildWithoutJoining;
+    // Only block if creating a STANDALONE group while already in a different group.
+    // Child group creation (parentPartyId set) never blocks — it simply skips auto-join.
+    const hasBlockingMembership = !parentPartyId && !!activeMembershipPartyId;
 
     const handleLeaveCurrentGroup = async () => {
         if (!activeMembershipPartyId || isLeavingCurrentGroup) return;

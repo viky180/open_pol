@@ -16,7 +16,7 @@ interface RepresentationData {
 
 type HomeFeedItem = {
     id: string;
-    type: 'question' | 'action_email' | 'action_escalation' | 'milestone' | 'merge' | 'post' | 'new_member' | 'invitation_accepted' | 'trust_milestone' | 'new_party';
+    type: 'question' | 'action_email' | 'milestone' | 'merge' | 'post' | 'new_member' | 'invitation_accepted' | 'trust_milestone' | 'new_party';
     partyId: string;
     partyName: string;
     scope: 'member' | 'location' | 'category' | 'global';
@@ -39,7 +39,7 @@ const FILTER_GROUPS: Array<{ id: FilterGroup; label: string; types: FeedItemData
     { id: 'all', label: 'All', types: [] },
     { id: 'activity', label: 'Activity', types: ['new_member', 'invitation_accepted', 'new_party'] },
     { id: 'discussions', label: 'Discussions', types: ['question', 'post'] },
-    { id: 'actions', label: 'Actions', types: ['action_email', 'action_escalation'] },
+    { id: 'actions', label: 'Actions', types: ['action_email'] },
     { id: 'wins', label: 'Wins', types: ['milestone', 'trust_milestone', 'merge'] },
 ];
 

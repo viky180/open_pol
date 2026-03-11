@@ -33,7 +33,7 @@ export interface SendEmailResult {
 }
 
 /**
- * Send an advocacy email via Resend
+ * Send a letter via Resend
  */
 export async function sendAdvocacyEmail({
     to,
@@ -144,7 +144,7 @@ function formatEmailHtml({ recipientName, body, partyName, senderName }: FormatE
   </div>
   
   <div class="footer">
-    <p>This is a formal advocacy email sent through the Open Politics platform.<br>
+    <p>This is a formal letter sent through the Open Politics platform.<br>
     Open Politics enables grassroots political coordination for Indian citizens.</p>
   </div>
 </body>
@@ -170,7 +170,7 @@ ${senderName}
 On behalf of: ${partyName}
 
 ---
-This is a formal advocacy email sent through the Open Politics platform.
+This is a formal letter sent through the Open Politics platform.
 Open Politics enables grassroots political coordination for Indian citizens.
   `.trim();
 }

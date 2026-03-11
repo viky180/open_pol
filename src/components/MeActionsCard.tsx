@@ -45,7 +45,7 @@ export function MeActionsCard({ partyId, partyName }: MeActionsCardProps) {
             <h2 className="text-sm font-semibold text-text-secondary mb-4">Actions</h2>
             <div className="flex flex-col gap-3">
                 <Link href={`/party/${partyId}#leader-section`} className="btn btn-primary btn-sm">
-                    Manage trust
+                    Manage backing
                 </Link>
                 <button
                     type="button"
@@ -57,7 +57,7 @@ export function MeActionsCard({ partyId, partyName }: MeActionsCardProps) {
             </div>
 
             <p className="text-xs text-text-muted mt-4">
-                You are in control. Exiting removes your trust vote and representation immediately.
+                You are in control. Exiting removes your backing and voice immediately.
             </p>
 
             {showExitConfirm && (

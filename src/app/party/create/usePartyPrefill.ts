@@ -7,6 +7,8 @@ interface UsePartyPrefillOptions {
     forkOfPartyId: string;
     parentPartyId: string;
     categoryId: string;
+    allowParentScopeAutofill?: boolean;
+    onSetIssueId: (id: string) => void;
     onSetParentPartyId: (id: string) => void;
     onSetLocationScope: (scope: string) => void;
     onSetStateName: (v: string) => void;
@@ -27,6 +29,8 @@ export function usePartyPrefill({
     forkOfPartyId,
     parentPartyId,
     categoryId,
+    allowParentScopeAutofill = true,
+    onSetIssueId,
     onSetParentPartyId,
     onSetLocationScope,
     onSetStateName,
@@ -80,11 +84,12 @@ export function usePartyPrefill({
         onSetBlockName(forkSourceParty.block_name || '');
         onSetPanchayatName(forkSourceParty.panchayat_name || '');
         onSetVillageName(forkSourceParty.village_name || '');
+        onSetIssueId(forkSourceParty.issue_id || '');
         if (!categoryId && forkSourceParty.category_id) {
             onSetCategoryId(forkSourceParty.category_id);
         }
         forkPrefillApplied.current = true;
-    }, [forkSourceParty, categoryId, onSetParentPartyId, onSetLocationScope, onSetStateName, onSetDistrictName, onSetBlockName, onSetPanchayatName, onSetVillageName, onSetCategoryId]);
+    }, [forkSourceParty, categoryId, onSetIssueId, onSetParentPartyId, onSetLocationScope, onSetStateName, onSetDistrictName, onSetBlockName, onSetPanchayatName, onSetVillageName, onSetCategoryId]);
 
     // Load parent party
     useEffect(() => {
@@ -105,13 +110,18 @@ export function usePartyPrefill({
 
     // Auto-apply child scope and auto-name once parent is loaded
     useEffect(() => {
-        if (!parentParty || !parentPartyId || !!forkSourceParty || childScopeAutoApplied.current) return;
+        if (!parentParty || !parentPartyId || !!forkSourceParty || childScopeAutoApplied.current || !allowParentScopeAutofill) return;
 
         const childDefaultScope = getChildDefaultScope(parentParty.location_scope);
         onSetLocationScope(childDefaultScope);
         if (childDefaultScope === 'district' && (parentParty.location_scope || 'district') === 'district') {
+            // Same-level district (legacy): carry both state + district forward
             onSetStateName(parentParty.state_name || '');
             onSetDistrictName(parentParty.district_name || '');
+        } else if (childDefaultScope === 'district' && (parentParty.location_scope || 'district') === 'state') {
+            // State parent → district child: carry state name forward so the form is valid
+            onSetStateName(parentParty.state_name || '');
+            onSetDistrictName('');
         } else if (childDefaultScope === 'block' && (parentParty.location_scope || 'district') === 'district') {
             // For district/city parent -> block/corporation child,
             // carry parent district/city context forward.
@@ -137,7 +147,7 @@ export function usePartyPrefill({
         if (autoName) onSetIssueText(autoName);
 
         childScopeAutoApplied.current = true;
-    }, [parentParty, parentPartyId, forkSourceParty, onSetLocationScope, onSetStateName, onSetDistrictName, onSetBlockName, onSetPanchayatName, onSetVillageName, onSetIssueText]);
+    }, [parentParty, parentPartyId, forkSourceParty, allowParentScopeAutofill, onSetLocationScope, onSetStateName, onSetDistrictName, onSetBlockName, onSetPanchayatName, onSetVillageName, onSetIssueText]);
 
     return { forkSourceParty, parentParty };
 }

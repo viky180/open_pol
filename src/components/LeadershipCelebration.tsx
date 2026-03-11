@@ -96,7 +96,7 @@ export function LeadershipCelebration({
                                     🎉 You&apos;re now the leader!
                                 </div>
                                 <p className="text-sm text-text-secondary mt-1">
-                                    As leader, you can manage this group&apos;s hierarchy and represent your members.
+                                    As leader, you can manage this group&apos;s connections and represent your members.
                                 </p>
                             </>
                         ) : (

@@ -100,26 +100,8 @@ export async function GET(request: NextRequest, { params }: Props) {
     else if (count <= 1000) level = 3;
     else level = 4;
 
-    // Get leader
-    const { data: votes } = await supabase
-        .from('trust_votes')
-        .select('to_user_id')
-        .eq('party_id', id)
-        .gt('expires_at', new Date().toISOString());
-
-    const voteCounts: Record<string, number> = {};
-    votes?.forEach(v => {
-        voteCounts[v.to_user_id] = (voteCounts[v.to_user_id] || 0) + 1;
-    });
-
-    let leaderId: string | null = null;
-    let maxVotes = 0;
-    Object.entries(voteCounts).forEach(([userId, cnt]) => {
-        if (cnt > maxVotes) {
-            maxVotes = cnt;
-            leaderId = userId;
-        }
-    });
+    // Get leader (flat level model: trust-vote winner in the group with most members at the same scope + issue_id)
+    const { data: leaderId } = await supabase.rpc('get_party_leader', { p_party_id: id });
 
     // Get Q&A metrics
     const { count: totalQuestions } = await supabase
@@ -140,7 +122,7 @@ export async function GET(request: NextRequest, { params }: Props) {
         ...party,
         member_count: count,
         level,
-        leader_id: leaderId,
+        leader_id: leaderId || null,
         qa_metrics: {
             total_questions: totalQuestions || 0,
             unanswered_questions: unansweredCount

@@ -49,10 +49,10 @@ export function YourRepresentationCard({ membership }: YourRepresentationCardPro
                     </div>
                     <div className="flex-1">
                         <h2 className="text-lg font-bold text-text-primary">
-                            You&apos;re not represented yet
+                            You haven&apos;t joined a group yet
                         </h2>
                         <p className="text-sm text-text-secondary mt-1 max-w-md">
-                            Join an issue-group to start participating in decisions and make your voice heard.
+                            Find a group for an issue you care about and make your voice heard.
                         </p>
                     </div>
                     <Link
@@ -99,12 +99,12 @@ export function YourRepresentationCard({ membership }: YourRepresentationCardPro
                                     L
                                 </span>
                                 <span>
-                                    Led by <span className="font-semibold text-text-primary">{leaderName}</span>
+                                    Voice: <span className="font-semibold text-text-primary">{leaderName}</span>
                                 </span>
                             </div>
                         ) : (
                             <p className="text-sm text-text-muted italic px-2">
-                                No leader elected yet
+                                No voice chosen yet — be the first to back someone
                             </p>
                         )}
                     </div>
@@ -135,7 +135,7 @@ export function YourRepresentationCard({ membership }: YourRepresentationCardPro
                         onClick={(event) => event.stopPropagation()}
                         className="text-sm font-semibold text-primary/80 hover:text-primary transition-all flex items-center gap-1.5 bg-primary/5 hover:bg-primary/10 px-4 py-2 rounded-lg"
                     >
-                        Manage Trust
+                        Go to group
                         <span>&gt;</span>
                     </Link>
                 </div>

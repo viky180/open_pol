@@ -85,7 +85,7 @@ const demoData = {
             id: 'f4',
             type: 'milestone',
             title: '50 members reached',
-            preview: 'The group crossed 50 members and is now visible for district-level escalation.',
+            preview: 'The group crossed 50 members and gained stronger local visibility.',
             author: 'System',
             timestamp: '1 week ago',
         },

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getOnboardingStatus } from '@/lib/onboarding';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -24,6 +25,24 @@ export async function GET(request: Request) {
         } = await supabase.auth.getUser();
 
         if (user) {
+            const onboardingStatus = await getOnboardingStatus({
+                getProfile: async () => {
+                    const { data } = await supabase
+                        .from('profiles')
+                        .select('display_name, pincode')
+                        .eq('id', user.id)
+                        .maybeSingle();
+                    return data;
+                },
+                getActiveMembershipCount: async () => {
+                    const { count } = await supabase
+                        .from('memberships')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('user_id', user.id)
+                        .is('left_at', null);
+                    return count;
+                },
+            });
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('created_at')
@@ -36,8 +55,12 @@ export async function GET(request: Request) {
                 !Number.isNaN(createdAt) &&
                 Date.now() - createdAt < 1000 * 60 * 15;
 
-            // For new signups, always guide users through onboarding first.
-            if (isRecentlyCreatedAccount) {
+            const shouldSendToWelcome =
+                isRecentlyCreatedAccount || (onboardingStatus.shouldCompleteOnboarding && next === '/');
+
+            // Route new signups, and returning users with incomplete activation landing on home,
+            // through the unified onboarding flow.
+            if (shouldSendToWelcome) {
                 const welcomeParams = new URLSearchParams();
                 if (next && next !== '/welcome') {
                     welcomeParams.set('next', next);

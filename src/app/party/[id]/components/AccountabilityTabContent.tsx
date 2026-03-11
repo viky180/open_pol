@@ -38,7 +38,7 @@ export function AccountabilityTabContent({
             <SectionHeader
                 icon="Q"
                 title="Public Q&A"
-                description="Ask questions that cannot be deleted. Hold representatives accountable."
+                description="Ask questions that cannot be deleted. Hold voices accountable."
                 gradientClassName="bg-gradient-to-br from-amber-500/5 via-transparent to-orange-500/5"
                 glowClassName="-top-10 -left-10 bg-amber-500/10"
             />
@@ -59,7 +59,7 @@ export function AccountabilityTabContent({
                 <JoinToParticipateCard
                     icon="?"
                     title="Join to ask questions"
-                    description="Members can ask public questions that representatives must answer."
+                    description="Members can ask public questions that voices must answer."
                     actionLabel={primaryAction.label}
                     actionDisabled={primaryAction.disabled}
                     onAction={primaryAction.onClick}

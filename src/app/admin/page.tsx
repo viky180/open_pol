@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Category, Party } from '@/types/database';
+import type { Category, Issue, Party } from '@/types/database';
 import Image from 'next/image';
 
 type PartyDraft = {
@@ -29,11 +29,17 @@ export default function AdminPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [issues, setIssues] = useState<Issue[]>([]);
     const [parties, setParties] = useState<Party[]>([]);
 
     const [categoryName, setCategoryName] = useState('');
     const [categorySlug, setCategorySlug] = useState('');
     const [categoryStatus, setCategoryStatus] = useState<string | null>(null);
+
+    const [issueText, setIssueText] = useState('');
+    const [issueCategoryId, setIssueCategoryId] = useState('');
+    const [issueStatus, setIssueStatus] = useState<string | null>(null);
+    const [issueSubmitting, setIssueSubmitting] = useState(false);
 
     const [partyDrafts, setPartyDrafts] = useState<PartyDraft[]>([{
         issueText: '',
@@ -89,18 +95,21 @@ export default function AdminPage() {
             }
 
             const response = await fetch('/api/categories');
+            const issuesResponse = await fetch('/api/issues?limit=200');
             const partiesResponse = await fetch('/api/parties?limit=200&sort=recent');
 
-            if (!response.ok || !partiesResponse.ok) {
-                setError('Failed to load categories.');
+            if (!response.ok || !issuesResponse.ok || !partiesResponse.ok) {
+                setError('Failed to load admin data.');
                 setLoading(false);
                 return;
             }
             const data = (await response.json()) as Category[];
+            const issuesPayload = (await issuesResponse.json()) as { issues?: Issue[] };
             const partiesPayload = (await partiesResponse.json()) as { parties?: Party[] };
             const impersonationResponse = await fetch('/api/admin/simulation/impersonation');
 
             setCategories(data);
+            setIssues(issuesPayload.issues || []);
             setParties(partiesPayload.parties || []);
 
             if (impersonationResponse.ok) {
@@ -126,6 +135,11 @@ export default function AdminPage() {
     const selectedPartyForTitleImageEdit = useMemo(
         () => parties.find((party) => party.id === editTitleImagePartyId) || null,
         [parties, editTitleImagePartyId]
+    );
+
+    const categoryNameById = useMemo(
+        () => new Map(categories.map((category) => [category.id, category.name])),
+        [categories]
     );
 
     const selectedPartyForIconEdit = useMemo(
@@ -265,6 +279,48 @@ Rules:
             setError(err instanceof Error ? err.message : 'Failed to create parties.');
         } finally {
             setPartySubmitting(false);
+        }
+    };
+
+    const handleCreateIssue = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setIssueStatus(null);
+        setError(null);
+
+        if (!issueText.trim()) {
+            setError('Issue text is required.');
+            return;
+        }
+
+        if (!issueCategoryId) {
+            setError('Please select an issue category.');
+            return;
+        }
+
+        setIssueSubmitting(true);
+        try {
+            const response = await fetch('/api/issues', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    issue_text: issueText.trim(),
+                    category_id: issueCategoryId,
+                }),
+            });
+
+            const payload = await response.json();
+            if (!response.ok) {
+                throw new Error(payload?.error || 'Failed to create issue.');
+            }
+
+            setIssues((prev) => [payload as Issue, ...prev]);
+            setIssueText('');
+            setIssueCategoryId('');
+            setIssueStatus('Issue created successfully under selected category.');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to create issue.');
+        } finally {
+            setIssueSubmitting(false);
         }
     };
 
@@ -624,7 +680,7 @@ Rules:
             <div className="card">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold">Admin: Categories & Parties</h1>
-                    <p className="text-text-secondary text-sm">Create categories and seed parties under them.</p>
+                    <p className="text-text-secondary text-sm">Create categories, add issues under categories, and seed parties.</p>
                 </div>
 
                 <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -671,6 +727,68 @@ Rules:
                                         <li key={category.id} className="flex items-center justify-between">
                                             <span>{category.name}</span>
                                             <span className="text-text-muted">{category.slug}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+                </section>
+
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 pt-6 border-t border-border-primary">
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold">Create Issue</h2>
+                        <form onSubmit={handleCreateIssue} className="space-y-4">
+                            <div className="form-group">
+                                <label className="label">Issue Text</label>
+                                <textarea
+                                    className="input textarea"
+                                    value={issueText}
+                                    onChange={(event) => setIssueText(event.target.value)}
+                                    placeholder="Describe the issue..."
+                                    maxLength={280}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="label">Issue Category</label>
+                                <select
+                                    className="input"
+                                    value={issueCategoryId}
+                                    onChange={(event) => setIssueCategoryId(event.target.value)}
+                                    required
+                                >
+                                    <option value="">Select a category</option>
+                                    {categories.map((category) => (
+                                        <option key={category.id} value={category.id}>{category.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <button type="submit" className="btn btn-primary" disabled={issueSubmitting || categories.length === 0}>
+                                {issueSubmitting ? 'Creating...' : 'Create Issue'}
+                            </button>
+
+                            {issueStatus && (
+                                <p className="text-sm text-success">{issueStatus}</p>
+                            )}
+                        </form>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold">Existing Issues</h2>
+                        <div className="rounded-xl border border-border-primary bg-bg-tertiary px-4 py-3 max-h-80 overflow-auto">
+                            {issues.length === 0 ? (
+                                <p className="text-sm text-text-muted">No issues yet.</p>
+                            ) : (
+                                <ul className="space-y-2 text-sm text-text-secondary">
+                                    {issues.map((issue) => (
+                                        <li key={issue.id} className="space-y-1 border-b border-border-primary/60 pb-2 last:border-b-0">
+                                            <p>{issue.issue_text}</p>
+                                            <p className="text-xs text-text-muted">
+                                                {issue.category_id ? (categoryNameById.get(issue.category_id) || 'Unknown category') : 'Uncategorized'}
+                                            </p>
                                         </li>
                                     ))}
                                 </ul>
@@ -1057,7 +1175,7 @@ Rules:
                 <div className="mb-6">
                     <h2 className="text-xl font-semibold">Audience Simulation</h2>
                     <p className="text-text-secondary text-sm">
-                        Import fake people into a group, choose representative, and impersonate members.
+                        Import fake people into a group, choose voice, and impersonate members.
                     </p>
                 </div>
 

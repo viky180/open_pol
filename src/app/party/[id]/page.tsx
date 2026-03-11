@@ -6,10 +6,10 @@ import { cookies } from 'next/headers';
 import { ADMIN_IMPERSONATION_COOKIE } from '@/lib/effectiveUser';
 import type {
     MemberWithVotes,
-    QuestionWithAnswers,
     QAMetrics,
     Party,
 } from '@/types/database';
+import { getLocationScopeRank } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,11 +20,32 @@ interface Props {
 type AllianceSummary = {
     id: string;
     name: string;
+    created_by?: string | null;
+};
+
+type HierarchyNodeForNavigation = {
+    id: string;
+    issue_text: string;
+    location_scope: string | null;
+    parent_party_id?: string | null;
+    total_member_count?: number | null;
+    aggregated_member_count?: number | null;
+    member_count?: number | null;
+    is_leading_coalition?: boolean | null;
+};
+
+type ActivityItem = {
+    id: string;
+    type: 'post' | 'leader_message' | 'question' | 'milestone';
+    title: string;
+    preview: string;
+    created_at: string;
 };
 
 export default async function PartyPage({ params }: Props) {
     const { id } = await params;
     const supabase = await createClient();
+    const now = new Date();
 
     // Fetch party first (required for other queries)
     const { data: party, error } = await supabase
@@ -51,10 +72,15 @@ export default async function PartyPage({ params }: Props) {
         memberCountResult,
         membershipsResult,
         trustVotesResult,
-        questionsResult,
+        levelLeaderResult,
+        likeCountResult,
     ] = await Promise.all([
-        // Fetch aggregated member count (including sub-groups)
-        supabase.rpc('get_recursive_member_count', { p_party_id: id }),
+        // Fetch direct member count from parties table (flat model uses member_count directly)
+        supabase
+            .from('parties')
+            .select('member_count')
+            .eq('id', id)
+            .maybeSingle(),
 
         // Fetch members with trust votes
         supabase
@@ -67,32 +93,38 @@ export default async function PartyPage({ params }: Props) {
             .eq('party_id', id)
             .is('left_at', null),
 
-        // Get trust votes for all members
+        // Trust votes within THIS group (for group-internal leader computation)
         supabase
             .from('trust_votes')
             .select('to_user_id')
             .eq('party_id', id)
             .gt('expires_at', new Date().toISOString()),
 
-        // Fetch questions with answers
+        // Level leader: trust-vote winner in the group with most members at this (scope + issue_id)
+        supabase.rpc('get_party_leader', { p_party_id: id }),
+
+        supabase
+            .from('party_likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('party_id', id),
+    ]);
+
+    // Keep initial Q&A payload light (counts only). Detailed Q&A content stays lazy.
+    const [totalQuestionsResult, unansweredProbeResult] = await Promise.all([
         supabase
             .from('questions')
-            .select(`
-                *,
-                profiles:asked_by (display_name),
-                answers (
-                    *,
-                    profiles:answered_by (display_name)
-                )
-            `)
-            .eq('party_id', id)
-            .order('created_at', { ascending: false }),
+            .select('*', { count: 'exact', head: true })
+            .eq('party_id', id),
+        supabase
+            .from('questions')
+            .select('id, answers(id)')
+            .eq('party_id', id),
     ]);
 
     // ============================================
     // PARALLEL QUERY GROUP 2: User-specific queries (only if user is logged in)
     // ============================================
-    const [userMembershipResult, activeMembershipResult, userVoteResult] = effectiveUserId
+    const [userMembershipResult, activeMembershipResult, userVoteResult, eligibleVoterResult, likedByMeResult] = effectiveUserId
         ? await Promise.all([
             supabase
                 .from('memberships')
@@ -113,83 +145,76 @@ export default async function PartyPage({ params }: Props) {
                 .eq('party_id', id)
                 .eq('from_user_id', effectiveUserId)
                 .gt('expires_at', new Date().toISOString())
-                .maybeSingle()
+                .maybeSingle(),
+            supabase.rpc('is_coalition_eligible_voter', { p_party_id: id, p_user_id: effectiveUserId }),
+            supabase
+                .from('party_likes')
+                .select('id')
+                .eq('party_id', id)
+                .eq('user_id', effectiveUserId)
+                .maybeSingle(),
         ])
-        : [{ data: null }, { data: null }, { data: null }];
+        : [{ data: null }, { data: null }, { data: null }, { data: false }, { data: null }];
 
     // Extract data from results
-    const memberCount = memberCountResult.data as number;
+    const memberCount = (memberCountResult.data as { member_count: number | null } | null)?.member_count ?? 0;
     const memberships = membershipsResult.data;
     const trustVotes = trustVotesResult.data;
-    const questions = questionsResult.data;
 
     const userMembership = userMembershipResult.data;
     const activeMembership = activeMembershipResult.data;
     const userVote = userVoteResult.data;
+    const isEligibleVoter = (eligibleVoterResult.data as boolean) || false;
+    const likedByMe = !!likedByMeResult.data;
+    const likeCount = likeCountResult.count || 0;
 
-    // Calculate vote counts per member
+    // ── Trust-vote counts within THIS group ──
     const voteCounts: Record<string, number> = {};
     trustVotes?.forEach(vote => {
         voteCounts[vote.to_user_id] = (voteCounts[vote.to_user_id] || 0) + 1;
     });
 
-    // Find leader (most votes)
-    let leaderId: string | null = null;
-    let maxVotes = 0;
-    Object.entries(voteCounts).forEach(([userId, count]) => {
-        if (count > maxVotes) {
-            maxVotes = count;
-            leaderId = userId;
-        }
-    });
+    // ── This group's OWN internal leader ──
+    // The member with the most trust votes cast by members of THIS group.
+    // Every group elects its own leader internally via trust voting.
+    const groupInternalLeaderId: string | null = Object.keys(voteCounts).length > 0
+        ? Object.entries(voteCounts).sort((a, b) => b[1] - a[1])[0][0]
+        : null;
+
+    // ── Level leader: from get_party_leader RPC ──
+    // This is the trust-vote winner inside the group with the most members
+    // at the same (location_scope + issue_id). May be from a different group.
+    const levelLeaderId = (levelLeaderResult.data as string | null) || null;
 
     const members: MemberWithVotes[] = (memberships || []).map(m => ({
         user_id: m.user_id as string,
         display_name: ((m.profiles as unknown) as { display_name: string | null } | null)?.display_name || null,
         joined_at: m.joined_at as string,
         trust_votes: voteCounts[m.user_id as string] || 0,
-        is_leader: m.user_id === leaderId
+        is_leader: m.user_id === groupInternalLeaderId,
     }));
 
-    // Inject sub-group leaders as votable candidates in this (parent) group.
-    // They are not direct members but can be elected to lead this parent group.
-    const directMemberUserIds = new Set(members.map(m => m.user_id));
+    // Group-internal leader info
+    const groupLeaderMember = members.find((m) => m.user_id === groupInternalLeaderId) || null;
+    const groupLeaderSince = groupLeaderMember?.joined_at || null;
+    const groupLeaderVoteCount = groupInternalLeaderId ? (voteCounts[groupInternalLeaderId] || 0) : 0;
 
-    const questionsWithAnswers: QuestionWithAnswers[] = (questions || []).map(q => {
-        const answers = (q.answers || []).map((a: { id: string; question_id: string; answered_by: string | null; answer_text: string; created_at: string; profiles: { display_name: string | null } | null }) => ({
-            ...a,
-            answerer_name: a.profiles?.display_name || null
-        }));
+    // Level leader info (the level leader may or may not be in this group)
+    const levelLeaderMemberInThisGroup = members.find((m) => m.user_id === levelLeaderId) || null;
+    const levelLeaderSince = levelLeaderMemberInThisGroup?.joined_at || null;
+    const levelLeaderVoteCount = levelLeaderId ? (voteCounts[levelLeaderId] || 0) : 0;
 
-        // Calculate response time
-        let responseTimeHours: number | null = null;
-        if (answers.length > 0) {
-            const firstAnswer = answers.sort((a: { created_at: string }, b: { created_at: string }) =>
-                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-            )[0];
-            const questionTime = new Date(q.created_at).getTime();
-            const answerTime = new Date(firstAnswer.created_at).getTime();
-            responseTimeHours = (answerTime - questionTime) / (1000 * 60 * 60);
-        }
+    // Calculate Q&A metrics from lightweight count queries
+    const totalQuestions = totalQuestionsResult.count || 0;
+    const unansweredQuestions = (unansweredProbeResult.data || []).filter((q) => {
+        const answers = (q as { answers?: Array<unknown> }).answers;
+        return !answers || answers.length === 0;
+    }).length;
 
-        return {
-            ...q,
-            asker_name: (q.profiles as { display_name: string | null })?.display_name || null,
-            answers,
-            response_time_hours: responseTimeHours
-        };
-    });
-
-    // Calculate Q&A metrics
     const qaMetrics: QAMetrics = {
-        total_questions: questionsWithAnswers.length,
-        unanswered_questions: questionsWithAnswers.filter(q => q.answers.length === 0).length,
-        avg_response_time_hours: (() => {
-            const answered = questionsWithAnswers.filter(q => q.response_time_hours !== null);
-            if (answered.length === 0) return null;
-            const total = answered.reduce((sum, q) => sum + (q.response_time_hours || 0), 0);
-            return total / answered.length;
-        })()
+        total_questions: totalQuestions,
+        unanswered_questions: unansweredQuestions,
+        avg_response_time_hours: null,
     };
 
     // Fetch parent metadata directly (instead of loading all parties)
@@ -200,240 +225,73 @@ export default async function PartyPage({ params }: Props) {
         currentParentParty = parentPartyResult.data || null;
     }
 
-    // Sub-group leaders supporting this parent (shown in Leadership tab)
+    const siblingGroups: Array<{ id: string; issue_text: string; icon_svg?: string | null; icon_image_url?: string | null; memberCount: number }> = [];
+    if (party.parent_party_id) {
+        let siblingQuery = supabase
+            .from('parties')
+            .select('id, issue_text, icon_svg, icon_image_url, member_count')
+            .eq('parent_party_id', party.parent_party_id)
+            .eq('location_scope', party.location_scope || 'district')
+            .neq('id', id);
+
+        const scope = party.location_scope || 'district';
+        if (scope === 'state' && party.state_name) {
+            siblingQuery = siblingQuery.eq('state_name', party.state_name);
+        } else if (scope === 'district' && party.district_name) {
+            siblingQuery = siblingQuery.eq('state_name', party.state_name || '').eq('district_name', party.district_name);
+        } else if (scope === 'block' && party.block_name) {
+            siblingQuery = siblingQuery.eq('state_name', party.state_name || '').eq('block_name', party.block_name);
+        } else if (scope === 'panchayat' && party.panchayat_name) {
+            siblingQuery = siblingQuery.eq('panchayat_name', party.panchayat_name);
+        } else if (scope === 'village' && party.village_name) {
+            siblingQuery = siblingQuery.eq('village_name', party.village_name);
+        }
+
+        const { data: siblingRows } = await siblingQuery;
+        if (siblingRows && siblingRows.length > 0) {
+            siblingRows.forEach((s: { id: string; issue_text: string; icon_svg?: string | null; icon_image_url?: string | null; member_count?: number | null }) => {
+                siblingGroups.push({
+                    id: s.id,
+                    issue_text: s.issue_text,
+                    icon_svg: s.icon_svg || null,
+                    icon_image_url: s.icon_image_url || null,
+                    memberCount: s.member_count || 0,
+                });
+            });
+        }
+    }
+
+    // Sub-groups for the Structure tab
     const { data: attachedSubgroupsData } = await supabase
         .from('parties')
-        .select('id, issue_text, icon_svg, icon_image_url, parent_party_id, location_scope, state_name, district_name, block_name, panchayat_name, village_name')
+        .select('id, issue_text, icon_svg, icon_image_url, member_count, location_scope, state_name, district_name, block_name, panchayat_name, village_name')
         .eq('parent_party_id', id);
-    const attachedSubgroups = (attachedSubgroupsData || []) as Array<Pick<Party, 'id' | 'issue_text' | 'icon_svg' | 'icon_image_url' | 'parent_party_id' | 'location_scope' | 'state_name' | 'district_name' | 'block_name' | 'panchayat_name' | 'village_name'>>;
-    const attachedSubgroupIds = attachedSubgroups.map((p) => p.id);
-
-    // Fetch member counts for each sub-group (used for fork winner badge)
-    const childGroupCountsResp = attachedSubgroups.length > 0
-        ? await (supabase.rpc as any)('get_recursive_member_counts_batch', { p_party_ids: attachedSubgroups.map(s => s.id) })
-        : { data: [] };
-    const childGroupCountsMap = new Map<string, number>(
-        (childGroupCountsResp.data || []).map((row: any) => [row.party_id, row.member_count])
-    );
-    const childGroupsWithCounts = attachedSubgroups.map((s) => ({
-        id: s.id,
-        issue_text: s.issue_text,
-        icon_svg: s.icon_svg || null,
-        icon_image_url: s.icon_image_url || null,
-        memberCount: childGroupCountsMap.get(s.id) || 0,
-        location_scope: s.location_scope || null,
-        state_name: s.state_name || null,
-        district_name: s.district_name || null,
-        block_name: s.block_name || null,
-        panchayat_name: s.panchayat_name || null,
-        village_name: s.village_name || null,
-    }));
-
-    // Fetch active self-nominations for this parent group
-    const { data: activeNominations } = await supabase
-        .from('leader_nominations')
-        .select('user_id, from_party_id')
-        .eq('to_party_id', id)
-        .is('withdrawn_at', null);
-    const nominatedUserIds = new Set((activeNominations || []).map(n => n.user_id as string));
-
-    let subgroupLeaderSupports: Array<{
-        partyId: string;
-        partyIssueText: string;
-        leaderUserId: string;
-        leaderName: string | null;
-        trustVotes: number;
+    const attachedSubgroups = (attachedSubgroupsData || []) as Array<Pick<Party, 'id' | 'issue_text' | 'icon_svg' | 'icon_image_url' | 'location_scope' | 'state_name' | 'district_name' | 'block_name' | 'panchayat_name' | 'village_name'> & { member_count?: number | null }>;
+    const childGroupsWithCounts: Array<Pick<Party, 'id' | 'issue_text' | 'icon_svg' | 'icon_image_url'> & {
+        memberCount: number;
+        location_scope: string | null;
+        state_name: string | null;
+        district_name: string | null;
+        block_name: string | null;
+        panchayat_name: string | null;
+        village_name: string | null;
     }> = [];
 
-    if (attachedSubgroupIds.length > 0) {
-        const [subgroupMembershipsResult, subgroupTrustVotesResult] = await Promise.all([
-            supabase
-                .from('memberships')
-                .select(`
-                    party_id,
-                    user_id,
-                    profiles:user_id (display_name)
-                `)
-                .in('party_id', attachedSubgroupIds)
-                .is('left_at', null),
-            supabase
-                .from('trust_votes')
-                .select('party_id, to_user_id')
-                .in('party_id', attachedSubgroupIds)
-                .gt('expires_at', new Date().toISOString()),
-        ]);
-
-        const subgroupMemberships = subgroupMembershipsResult.data || [];
-        const subgroupTrustVotes = subgroupTrustVotesResult.data || [];
-
-        const voteCountsByPartyUser = new Map<string, Map<string, number>>();
-        subgroupTrustVotes.forEach((vote) => {
-            const partyId = vote.party_id as string;
-            const userId = vote.to_user_id as string;
-            const partyMap = voteCountsByPartyUser.get(partyId) || new Map<string, number>();
-            partyMap.set(userId, (partyMap.get(userId) || 0) + 1);
-            voteCountsByPartyUser.set(partyId, partyMap);
+    attachedSubgroups.forEach((subgroup) => {
+        childGroupsWithCounts.push({
+            id: subgroup.id,
+            issue_text: subgroup.issue_text,
+            icon_svg: subgroup.icon_svg || null,
+            icon_image_url: subgroup.icon_image_url || null,
+            memberCount: subgroup.member_count || 0,
+            location_scope: subgroup.location_scope || null,
+            state_name: subgroup.state_name || null,
+            district_name: subgroup.district_name || null,
+            block_name: subgroup.block_name || null,
+            panchayat_name: subgroup.panchayat_name || null,
+            village_name: subgroup.village_name || null,
         });
-
-        const membersByParty = new Map<string, Array<{ user_id: string; display_name: string | null }>>();
-        subgroupMemberships.forEach((m) => {
-            const partyId = m.party_id as string;
-            const bucket = membersByParty.get(partyId) || [];
-            bucket.push({
-                user_id: m.user_id as string,
-                display_name: ((m.profiles as unknown) as { display_name: string | null } | null)?.display_name || null,
-            });
-            membersByParty.set(partyId, bucket);
-        });
-
-        subgroupLeaderSupports = attachedSubgroups.flatMap((subgroup) => {
-            const votesForParty = voteCountsByPartyUser.get(subgroup.id) || new Map<string, number>();
-            let leaderUserId: string | null = null;
-            let trustVotes = 0;
-
-            votesForParty.forEach((count, userId) => {
-                if (count > trustVotes) {
-                    trustVotes = count;
-                    leaderUserId = userId;
-                }
-            });
-
-            if (!leaderUserId) {
-                return [];
-            }
-
-            const leaderName = (membersByParty.get(subgroup.id) || []).find((m) => m.user_id === leaderUserId)?.display_name || null;
-
-            return [{
-                partyId: subgroup.id,
-                partyIssueText: subgroup.issue_text,
-                leaderUserId,
-                leaderName,
-                trustVotes,
-            }];
-        });
-    }
-
-    // Only inject SELF-NOMINATED sub-group leaders into the parent group's member list
-    for (const support of subgroupLeaderSupports) {
-        if (!directMemberUserIds.has(support.leaderUserId) && nominatedUserIds.has(support.leaderUserId)) {
-            members.push({
-                user_id: support.leaderUserId,
-                display_name: support.leaderName,
-                joined_at: new Date().toISOString(),
-                trust_votes: voteCounts[support.leaderUserId] || 0,
-                is_leader: support.leaderUserId === leaderId,
-                is_subgroup_leader: true,
-                is_self_nominated: true,
-                subgroup_name: support.partyIssueText,
-            });
-        }
-    }
-
-    // Determine if this group is the governing coalition at its scope
-    let isGoverning = false;
-    const scope = party.location_scope || 'district';
-    const locationField = scope === 'state' ? 'state_name'
-        : scope === 'district' ? 'district_name'
-            : scope === 'block' ? 'block_name'
-                : scope === 'panchayat' ? 'panchayat_name'
-                    : scope === 'village' ? 'village_name'
-                        : null;
-    const locationValue = locationField ? (party as Record<string, unknown>)[locationField] as string | null : null;
-
-    if (locationField && locationValue && !party.parent_party_id) {
-        // Find sibling groups at same scope + same area (only top-level groups, no children)
-        const siblingQuery = supabase
-            .from('parties')
-            .select('id')
-            .eq('location_scope', scope)
-            .eq(locationField, locationValue)
-            .is('parent_party_id', null)
-            .neq('id', id);
-        const { data: siblings } = await siblingQuery;
-
-        const myCount = memberCount || 0;
-        let isLargest = myCount > 0;
-
-        if (siblings && siblings.length > 0) {
-            const siblingCountsResp = await (supabase.rpc as any)('get_recursive_member_counts_batch', { p_party_ids: siblings.map(s => s.id) });
-            const siblingCounts = siblingCountsResp.data || [];
-            for (const obj of siblingCounts) {
-                const row = obj as any;
-                if ((row.member_count as number) >= myCount) {
-                    isLargest = false;
-                    break;
-                }
-            }
-        }
-        isGoverning = isLargest;
-    }
-
-    let competingGroups: Array<{ id: string; issue_text: string; icon_svg?: string | null; icon_image_url?: string | null; memberCount: number }> = [];
-    if (party.category_id) {
-        let competitorQuery = supabase
-            .from('parties')
-            .select('id, issue_text, icon_svg, icon_image_url')
-            .eq('category_id', party.category_id)
-            .eq('location_scope', scope)
-            .neq('id', id);
-
-        // Match location details based on scope
-        if (scope === 'national') {
-            // All national groups in same category compete
-        } else if (scope === 'state' && party.state_name) {
-            competitorQuery = competitorQuery.eq('state_name', party.state_name);
-        } else if (scope === 'district' && party.state_name && party.district_name) {
-            competitorQuery = competitorQuery
-                .eq('state_name', party.state_name)
-                .eq('district_name', party.district_name);
-        } else if (scope === 'block' && party.state_name && party.block_name) {
-            competitorQuery = competitorQuery
-                .eq('state_name', party.state_name)
-                .eq('block_name', party.block_name);
-        } else if (scope === 'panchayat' && party.panchayat_name) {
-            competitorQuery = competitorQuery.eq('panchayat_name', party.panchayat_name);
-        } else if (scope === 'village' && party.village_name) {
-            competitorQuery = competitorQuery.eq('village_name', party.village_name);
-        }
-
-        const { data: competitors } = await competitorQuery;
-        if (competitors && competitors.length > 0) {
-            const competitorCountsResp = await (supabase.rpc as any)('get_recursive_member_counts_batch', { p_party_ids: competitors.map(c => c.id) });
-            const competitorCountsMap = new Map<string, number>(
-                (competitorCountsResp.data || []).map((row: any) => [row.party_id, row.member_count])
-            );
-            competingGroups = competitors.map((c) => ({
-                id: c.id,
-                issue_text: c.issue_text,
-                icon_svg: c.icon_svg || null,
-                icon_image_url: c.icon_image_url || null,
-                memberCount: competitorCountsMap.get(c.id) || 0,
-            }));
-        }
-    }
-
-    // Current user nomination status
-    let currentUserIsSubgroupLeader = false;
-    let currentUserNomination: { nominated: boolean; fromPartyId: string | null } = { nominated: false, fromPartyId: null };
-
-    if (effectiveUserId && attachedSubgroupIds.length > 0) {
-        // Check if current user is a leader of any sub-group
-        for (const support of subgroupLeaderSupports) {
-            if (support.leaderUserId === effectiveUserId) {
-                currentUserIsSubgroupLeader = true;
-                // Check if they have an active nomination
-                const nomination = (activeNominations || []).find(
-                    n => (n.user_id as string) === effectiveUserId
-                );
-                currentUserNomination = {
-                    nominated: !!nomination,
-                    fromPartyId: nomination ? (nomination.from_party_id as string) : support.partyId,
-                };
-                break;
-            }
-        }
-    }
+    });
 
     // Fetch active alliance membership for this party
     const { data: allianceMembership } = await supabase
@@ -452,34 +310,357 @@ export default async function PartyPage({ params }: Props) {
     const allianceRelation = allianceMembership?.alliances as AllianceSummary | AllianceSummary[] | null | undefined;
     const allianceDetails = Array.isArray(allianceRelation) ? allianceRelation[0] : allianceRelation;
 
-    const currentAlliance = allianceDetails
-        ? {
+    let currentAlliance: {
+        id: string;
+        name: string;
+        combinedMemberCount: number;
+        leaderName: string | null;
+    } | null = null;
+
+    if (allianceDetails) {
+        const [allianceMembersResult, allianceLeaderResult] = await Promise.all([
+            supabase
+                .from('alliance_members')
+                .select('party_id')
+                .eq('alliance_id', allianceDetails.id)
+                .is('left_at', null),
+            allianceDetails.created_by
+                ? supabase
+                    .from('profiles')
+                    .select('display_name')
+                    .eq('id', allianceDetails.created_by)
+                    .maybeSingle()
+                : Promise.resolve({ data: null }),
+        ]);
+
+        const alliancePartyIds = (allianceMembersResult.data || []).map((member: { party_id: string }) => member.party_id);
+        let combinedMemberCount = 0;
+
+        if (alliancePartyIds.length > 0) {
+            const allianceCountsResult = await supabase
+                .from('parties')
+                .select('member_count')
+                .in('id', alliancePartyIds);
+
+            combinedMemberCount = ((allianceCountsResult.data as Array<{ member_count: number | null }> | null) || [])
+                .reduce((sum, row) => sum + (row.member_count || 0), 0);
+        }
+
+        currentAlliance = {
             id: allianceDetails.id,
             name: allianceDetails.name,
+            combinedMemberCount,
+            leaderName: allianceLeaderResult.data?.display_name || null,
+        };
+    }
+
+    const { data: hierarchyRpcData } = await supabase.rpc('get_party_hierarchy_data', {
+        p_party_id: id,
+    });
+
+    const hierarchyNodes = ((hierarchyRpcData as { nodes?: HierarchyNodeForNavigation[] } | null)?.nodes || []);
+    const levelNavigationTargets = (() => {
+        const seen = new Set<string>();
+        const normalized = hierarchyNodes
+            .filter((node) => !!node?.id && !!node?.issue_text)
+            .filter((node) => {
+                if (seen.has(node.id)) return false;
+                seen.add(node.id);
+                return true;
+            })
+            .map((node) => ({
+                id: node.id,
+                issue_text: node.issue_text,
+                location_scope: node.location_scope || 'district',
+                is_current: node.id === id,
+            }))
+            .sort((a, b) => {
+                const byRank = getLocationScopeRank(a.location_scope) - getLocationScopeRank(b.location_scope);
+                if (byRank !== 0) return byRank;
+                if (a.is_current && !b.is_current) return -1;
+                if (!a.is_current && b.is_current) return 1;
+                return a.issue_text.localeCompare(b.issue_text);
+            });
+
+        if (normalized.length > 0) return normalized;
+
+        return [{
+            id: party.id,
+            issue_text: party.issue_text,
+            location_scope: party.location_scope || 'district',
+            is_current: true,
+        }];
+    })();
+
+    const voicePath = (() => {
+        const byId = new Map<string, HierarchyNodeForNavigation>(
+            hierarchyNodes.map((node) => [node.id, node])
+        );
+        const path: Array<{
+            id: string;
+            issue_text: string;
+            location_scope: string;
+            total_members: number;
+            is_current: boolean;
+            is_leading: boolean;
+        }> = [];
+
+        let cursor: string | null = id;
+        const visited = new Set<string>();
+
+        while (cursor && !visited.has(cursor)) {
+            visited.add(cursor);
+            const node = byId.get(cursor);
+            if (!node) break;
+
+            path.push({
+                id: node.id,
+                issue_text: node.issue_text,
+                location_scope: node.location_scope || 'district',
+                total_members: node.total_member_count || node.aggregated_member_count || node.member_count || 0,
+                is_current: node.id === id,
+                is_leading: !!node.is_leading_coalition,
+            });
+
+            cursor = node.parent_party_id || null;
         }
-        : null;
+
+        if (path.length > 0) return path;
+
+        return [{
+            id: party.id,
+            issue_text: party.issue_text,
+            location_scope: party.location_scope || 'district',
+            total_members: memberCount || 0,
+            is_current: true,
+            is_leading: false,
+        }];
+    })();
+
+    const rankContext = await (async () => {
+        const scope = party.location_scope || 'district';
+        let rankQuery = supabase
+            .from('parties')
+            .select('id, member_count')
+            .eq('location_scope', scope);
+
+        if (scope === 'state' && party.state_name) {
+            rankQuery = rankQuery.eq('state_name', party.state_name);
+        } else if (scope === 'district' && party.state_name && party.district_name) {
+            rankQuery = rankQuery
+                .eq('state_name', party.state_name)
+                .eq('district_name', party.district_name);
+        } else if (scope === 'block' && party.state_name && party.block_name) {
+            rankQuery = rankQuery
+                .eq('state_name', party.state_name)
+                .eq('block_name', party.block_name);
+        } else if (scope === 'panchayat' && party.panchayat_name) {
+            rankQuery = rankQuery.eq('panchayat_name', party.panchayat_name);
+        } else if (scope === 'village' && party.village_name) {
+            rankQuery = rankQuery.eq('village_name', party.village_name);
+        }
+
+        const { data: sameScopeParties } = await rankQuery;
+        const peers = sameScopeParties || [];
+
+        if (peers.length === 0) {
+            return { rank: 1, total: 1, isLeading: true };
+        }
+
+        // Sort by direct member_count (no affiliation boosting in new flat model)
+        const sorted = [...peers].sort(
+            (a, b) => (b.member_count || 0) - (a.member_count || 0)
+        );
+        const index = sorted.findIndex((row) => row.id === id);
+
+        return {
+            rank: index >= 0 ? index + 1 : sorted.length + 1,
+            total: sorted.length,
+            isLeading: index === 0,
+        };
+    })();
+
+
+    const weeklyTrend = await (async () => {
+        const cutoff = new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: snapshots } = await supabase
+            .from('party_snapshots')
+            .select('member_count, recorded_at')
+            .eq('party_id', id)
+            .gte('recorded_at', cutoff)
+            .order('recorded_at', { ascending: true });
+
+        if (!snapshots || snapshots.length < 2) {
+            return {
+                delta: 0,
+                percent: 0,
+            };
+        }
+
+        const first = snapshots[0];
+        const last = snapshots[snapshots.length - 1];
+        const delta = (last.member_count || 0) - (first.member_count || 0);
+        const percent = first.member_count > 0
+            ? Math.round((delta / first.member_count) * 100)
+            : delta > 0
+                ? 100
+                : 0;
+
+        return { delta, percent };
+    })();
+
+    const [postsResult, questionsResult, milestonesResult, petitionCampaignsResult] = await Promise.all([
+        supabase
+            .from('party_posts')
+            .select('id, content, created_at, created_by, profiles!party_posts_created_by_fkey(display_name)')
+            .eq('party_id', id)
+            .order('created_at', { ascending: false })
+            .limit(8),
+        supabase
+            .from('questions')
+            .select('id, question_text, created_at, answers(id)')
+            .eq('party_id', id)
+            .order('created_at', { ascending: false })
+            .limit(8),
+        supabase
+            .from('party_milestones')
+            .select('id, threshold, member_count_at_event, created_at')
+            .eq('party_id', id)
+            .order('created_at', { ascending: false })
+            .limit(8),
+        supabase
+            .from('petition_campaigns')
+            .select('id, title, description, target_signatures, status, ends_at, created_at')
+            .eq('party_id', id)
+            .in('status', ['active', 'threshold_met'])
+            .order('created_at', { ascending: false })
+            .limit(6),
+    ]);
+
+    const activityItems: ActivityItem[] = [
+        ...((postsResult.data || []).map((post: {
+            id: string;
+            content: string;
+            created_at: string;
+            created_by: string | null;
+            profiles: { display_name: string | null } | { display_name: string | null }[] | null;
+        }) => {
+            const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+            const author = profile?.display_name || 'Member';
+            // A post is a "leader message" if authored by this group's own internal leader
+            const isLeaderPost = !!groupInternalLeaderId && post.created_by === groupInternalLeaderId;
+
+            return {
+                id: `post_${post.id}`,
+                type: isLeaderPost ? 'leader_message' : 'post',
+                title: isLeaderPost ? `Leader message from ${author}` : `Post by ${author}`,
+                preview: post.content,
+                created_at: post.created_at,
+            } as ActivityItem;
+        })),
+        ...((questionsResult.data || []).map((question: {
+            id: string;
+            question_text: string;
+            created_at: string;
+            answers?: Array<unknown>;
+        }) => ({
+            id: `question_${question.id}`,
+            type: 'question',
+            title: 'New question',
+            preview: `${question.question_text}${(question.answers || []).length > 0 ? ` · ${(question.answers || []).length} answer(s)` : ''}`,
+            created_at: question.created_at,
+        } as ActivityItem))),
+        ...((milestonesResult.data || []).map((milestone: {
+            id: string;
+            threshold: number;
+            member_count_at_event: number;
+            created_at: string;
+        }) => ({
+            id: `milestone_${milestone.id}`,
+            type: 'milestone',
+            title: `Milestone reached: ${milestone.threshold}`,
+            preview: `${milestone.member_count_at_event.toLocaleString('en-IN')} members at this milestone`,
+            created_at: milestone.created_at,
+        } as ActivityItem))),
+    ]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 12);
+
+    const petitionCampaignRows = (petitionCampaignsResult.data || []) as Array<{
+        id: string;
+        title: string;
+        description: string;
+        target_signatures: number;
+        status: string;
+        ends_at: string;
+        created_at: string;
+    }>;
+
+    const petitionSignatureCounts = await Promise.all(
+        petitionCampaignRows.map(async (campaign) => {
+            const { count } = await supabase
+                .from('petition_signatures')
+                .select('*', { count: 'exact', head: true })
+                .eq('campaign_id', campaign.id);
+
+            return {
+                campaign_id: campaign.id,
+                signatures: count || 0,
+            };
+        })
+    );
+    const petitionCountMap = new Map(petitionSignatureCounts.map((row) => [row.campaign_id, row.signatures]));
+
+    const petitionCampaigns = petitionCampaignRows.map((campaign) => ({
+        ...campaign,
+        signatures: petitionCountMap.get(campaign.id) || 0,
+    }));
 
     return (
         <PartyDetailClient
+            key={party.id}
             party={party}
             memberCount={memberCount || 0}
             members={members}
-            questions={questionsWithAnswers}
+            questions={[]}
             qaMetrics={qaMetrics}
             currentUserId={effectiveUserId}
             isMember={!!userMembership}
+            isEligibleVoter={isEligibleVoter}
             activeMembershipPartyId={activeMembership?.party_id || null}
             memberSince={userMembership?.joined_at || null}
             votedFor={userVote?.to_user_id || null}
             voteExpiresAt={userVote?.expires_at || null}
             currentParentParty={currentParentParty}
             childGroups={childGroupsWithCounts}
-            isGoverning={isGoverning}
-            competingGroups={competingGroups}
-            currentUserIsSubgroupLeader={currentUserIsSubgroupLeader}
-            currentUserNomination={currentUserNomination}
+            siblingGroups={siblingGroups}
             currentAlliance={currentAlliance}
-            canEditPartyIcon={isAdmin}
+            canEditPartyIcon={isAdmin || groupInternalLeaderId === effectiveUserId}
+            levelNavigationTargets={levelNavigationTargets}
+            initialLikeCount={likeCount}
+            initialLikedByMe={likedByMe}
+            weeklyMemberDelta={weeklyTrend.delta}
+            trendingPercent={weeklyTrend.percent}
+            rankInScope={rankContext.rank}
+            isLeadingInScope={rankContext.isLeading}
+            voicePath={voicePath}
+            groupLeaderMeta={{
+                leaderId: groupInternalLeaderId,
+                leaderName: groupLeaderMember?.display_name || null,
+                leaderSince: groupLeaderSince,
+                electedBy: groupLeaderVoteCount,
+            }}
+            levelLeaderMeta={{
+                leaderId: levelLeaderId,
+                leaderName: levelLeaderMemberInThisGroup?.display_name || null,
+                leaderSince: levelLeaderSince,
+                electedBy: levelLeaderVoteCount,
+                isFromThisGroup: rankContext.isLeading,
+            }}
+            activityItems={activityItems}
+            petitionCampaigns={petitionCampaigns}
+            isCurrentUserLeader={groupInternalLeaderId === effectiveUserId}
+            issueId={party.issue_id || null}
         />
     );
 }

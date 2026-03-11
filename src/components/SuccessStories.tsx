@@ -48,7 +48,7 @@ const HARDCODED_STORIES: SuccessStory[] = [
 
 export function SuccessStories() {
     return (
-        <section className="py-16 bg-bg-secondary/80 border-y border-border-primary">
+        <section className="py-16 bg-bg-secondary border-y border-border-primary">
             <div className="container mx-auto px-4 max-w-6xl">
                 <div className="text-center mb-12">
                     <p className="brand-kicker">Verified Outcomes</p>
@@ -77,7 +77,7 @@ export function SuccessStories() {
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-text-muted">Time to outcome</span>
-                                    <span className="font-semibold text-accent">{story.daysToWin} days</span>
+                                    <span className="font-semibold text-text-primary">{story.daysToWin} days</span>
                                 </div>
                                 <div className="text-xs text-text-muted pt-1">{story.location}</div>
                             </div>

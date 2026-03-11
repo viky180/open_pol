@@ -33,6 +33,75 @@ interface CommunityGroupsListProps {
     limit?: number;
 }
 
+type ExpandedGroupData = Record<
+    string,
+    {
+        children: HierarchyChild[];
+    }
+>;
+
+type DiscoverGroupsResponse = {
+    groupItems?: GroupItem[];
+    hasMore?: boolean;
+    nextOffset?: number;
+};
+
+const SEARCH_DEBOUNCE_MS = 250;
+const EMPTY_STATE_TITLE = 'No groups found';
+const EMPTY_STATE_DESCRIPTION = 'Be the first to start a group for this cause.';
+
+function getTrimmedParam(params: URLSearchParams, key: string): string {
+    return params.get(key)?.trim() ?? '';
+}
+
+function getCategoryButtonClass(isActive: boolean): string {
+    return `px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${isActive
+        ? 'bg-primary text-white'
+        : 'bg-white text-text-secondary border border-border-primary hover:border-primary/40'
+        }`;
+}
+
+function createChapterUrl(party: Party): string {
+    return createPartyUrl({
+        parent: party.id,
+        category: party.category_id || null,
+        location_scope: party.location_scope || null,
+        location_label: party.location_label || null,
+        state_name: party.state_name || null,
+        district_name: party.district_name || null,
+        block_name: party.block_name || null,
+        panchayat_name: party.panchayat_name || null,
+        village_name: party.village_name || null,
+    });
+}
+
+function ChevronIcon({ isExpanded, className = 'w-4 h-4 transition-transform' }: { isExpanded: boolean; className?: string }) {
+    return (
+        <svg
+            className={`${className} ${isExpanded ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+        >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+    );
+}
+
+function createDiscoverQueryParams(searchParams: URLSearchParams, nextOffset: number, limit: number): URLSearchParams {
+    const params = new URLSearchParams();
+    const q = getTrimmedParam(searchParams, 'q');
+    const category = getTrimmedParam(searchParams, 'category');
+
+    if (q) params.set('q', q);
+    if (category) params.set('category', category);
+
+    params.set('offset', String(nextOffset));
+    params.set('limit', String(limit));
+
+    return params;
+}
+
 function getRelativeTime(dateString: string | null | undefined): string {
     if (!dateString) return 'New';
 
@@ -60,6 +129,31 @@ function getScopeLabel(scope: string | undefined | null): string {
     }
 }
 
+function mergeUniqueGroups(existing: GroupItem[], incoming: GroupItem[]): GroupItem[] {
+    const existingIds = new Set(existing.map((item) => item.party.id));
+    const uniqueIncoming = incoming.filter((item) => !existingIds.has(item.party.id));
+    return [...existing, ...uniqueIncoming];
+}
+
+function getPartyDetailsHref(id: string): string {
+    return `/party/${id}`;
+}
+
+function buildUrl(pathname: string, params: URLSearchParams): string {
+    const query = params.toString();
+    return query ? `${pathname}?${query}` : pathname;
+}
+
+function createSetWithValue(prev: Set<string>, value: string, shouldInclude: boolean): Set<string> {
+    const next = new Set(prev);
+    if (shouldInclude) {
+        next.add(value);
+    } else {
+        next.delete(value);
+    }
+    return next;
+}
+
 export function CommunityGroupsList({
     groups,
     categories,
@@ -70,15 +164,13 @@ export function CommunityGroupsList({
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const queryFromUrl = searchParams.get('q')?.trim() ?? '';
-    const categoryFromUrl = searchParams.get('category')?.trim() ?? '';
+    const queryFromUrl = getTrimmedParam(searchParams, 'q');
+    const categoryFromUrl = getTrimmedParam(searchParams, 'category');
 
     const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryFromUrl || null);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [loadingExpandedIds, setLoadingExpandedIds] = useState<Set<string>>(new Set());
-    const [expandedGroupData, setExpandedGroupData] = useState<Record<string, {
-        children: HierarchyChild[];
-    }>>({});
+    const [expandedGroupData, setExpandedGroupData] = useState<ExpandedGroupData>({});
     const [searchQuery, setSearchQuery] = useState(queryFromUrl);
     const [isPending, startTransition] = useTransition();
     const [loadedGroups, setLoadedGroups] = useState<GroupItem[]>(groups);
@@ -105,7 +197,7 @@ export function CommunityGroupsList({
         const timeout = setTimeout(() => {
             const trimmed = searchQuery.trim();
             const params = new URLSearchParams(searchParams.toString());
-            const currentQ = searchParams.get('q')?.trim() ?? '';
+            const currentQ = getTrimmedParam(searchParams, 'q');
 
             if (trimmed === currentQ) return;
 
@@ -116,12 +208,11 @@ export function CommunityGroupsList({
             }
             params.delete('offset');
 
-            const nextQuery = params.toString();
-            const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+            const nextUrl = buildUrl(pathname, params);
             startTransition(() => {
                 router.replace(nextUrl, { scroll: false });
             });
-        }, 250);
+        }, SEARCH_DEBOUNCE_MS);
 
         return () => clearTimeout(timeout);
     }, [searchQuery, searchParams, router, pathname, startTransition]);
@@ -131,35 +222,20 @@ export function CommunityGroupsList({
 
         setIsLoadingMore(true);
         try {
-            const params = new URLSearchParams();
-            const q = searchParams.get('q')?.trim();
-            const category = searchParams.get('category')?.trim();
-
-            if (q) params.set('q', q);
-            if (category) params.set('category', category);
-            params.set('offset', String(nextOffset));
-            params.set('limit', String(limit));
+            const params = createDiscoverQueryParams(searchParams, nextOffset, limit);
 
             const response = await fetch(`/api/discover/groups?${params.toString()}`);
             if (!response.ok) {
                 throw new Error('Failed to load more groups');
             }
 
-            const data = await response.json() as {
-                groupItems?: GroupItem[];
-                hasMore?: boolean;
-                nextOffset?: number;
-            };
+            const data = await response.json() as DiscoverGroupsResponse;
 
             const incoming = Array.isArray(data.groupItems) ? data.groupItems : [];
 
-            setLoadedGroups((prev) => {
-                const existingIds = new Set(prev.map((item) => item.party.id));
-                const uniqueIncoming = incoming.filter((item) => !existingIds.has(item.party.id));
-                return [...prev, ...uniqueIncoming];
-            });
+            setLoadedGroups((prev) => mergeUniqueGroups(prev, incoming));
             setHasMorePages(Boolean(data.hasMore));
-            setNextOffset(typeof data.nextOffset === 'number' ? data.nextOffset : nextOffset + limit);
+            setNextOffset((prev) => (typeof data.nextOffset === 'number' ? data.nextOffset : prev + limit));
         } catch {
             // keep current list and allow retry
         } finally {
@@ -179,8 +255,7 @@ export function CommunityGroupsList({
 
         params.delete('offset');
 
-        const nextQuery = params.toString();
-        const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+        const nextUrl = buildUrl(pathname, params);
 
         startTransition(() => {
             router.replace(nextUrl, { scroll: false });
@@ -190,11 +265,7 @@ export function CommunityGroupsList({
     const loadExpandedData = async (id: string) => {
         if (expandedGroupData[id] || loadingExpandedIds.has(id)) return;
 
-        setLoadingExpandedIds(prev => {
-            const next = new Set(prev);
-            next.add(id);
-            return next;
-        });
+        setLoadingExpandedIds((prev) => createSetWithValue(prev, id, true));
 
         try {
             const response = await fetch(`/api/discover/groups/${id}`);
@@ -215,33 +286,25 @@ export function CommunityGroupsList({
                 },
             }));
         } finally {
-            setLoadingExpandedIds(prev => {
-                const next = new Set(prev);
-                next.delete(id);
-                return next;
-            });
+            setLoadingExpandedIds((prev) => createSetWithValue(prev, id, false));
         }
     };
 
     const toggleExpand = (id: string, shouldLoadDetails: boolean) => {
         const isCurrentlyExpanded = expandedIds.has(id);
 
-        setExpandedIds(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-            return next;
-        });
+        setExpandedIds((prev) => createSetWithValue(prev, id, !prev.has(id)));
 
         if (!isCurrentlyExpanded && shouldLoadDetails) {
             void loadExpandedData(id);
         }
     };
 
-    const renderHierarchyChildren = (children: HierarchyChild[] | undefined, depth = 0): React.ReactElement[] => {
+    const renderHierarchyChildren = (
+        children: HierarchyChild[] | undefined,
+        depth = 0,
+        parentIssueText?: string,
+    ): React.ReactElement[] => {
         if (!children || children.length === 0) return [];
 
         return children.map((child) => {
@@ -263,28 +326,23 @@ export function CommunityGroupsList({
                                 className="w-5 h-5 shrink-0 text-text-muted hover:text-text-primary transition-colors flex items-center justify-center"
                                 aria-label={isExpanded ? 'Collapse' : 'Expand'}
                             >
-                                <svg
-                                    className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
+                                <ChevronIcon isExpanded={isExpanded} className="w-3.5 h-3.5 transition-transform" />
                             </button>
                         ) : (
                             <span className="w-5 h-5 shrink-0 flex items-center justify-center text-text-muted text-xs">↳</span>
                         )}
 
                         <Link
-                            href={`/party/${child.party.id}`}
+                            href={getPartyDetailsHref(child.party.id)}
                             className="flex-1 flex items-center justify-between py-2 hover:text-primary transition-colors"
                         >
                             <div>
                                 <p className="text-sm font-medium text-text-primary line-clamp-1">
                                     {child.party.issue_text}
                                 </p>
-                                <p className="text-xs text-text-muted">Sub-group</p>
+                                <p className="text-xs text-text-muted">
+                                    {parentIssueText ? `Chapter of ${parentIssueText}` : 'Local chapter'}
+                                </p>
                             </div>
                             <svg className="w-4 h-4 text-text-muted shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -292,7 +350,7 @@ export function CommunityGroupsList({
                         </Link>
                     </div>
 
-                    {hasNestedChildren && isExpanded && renderHierarchyChildren(child.children, depth + 1)}
+                    {hasNestedChildren && isExpanded && renderHierarchyChildren(child.children, depth + 1, child.party.issue_text)}
                 </div>
             );
         });
@@ -325,20 +383,14 @@ export function CommunityGroupsList({
                     <button
                         type="button"
                         onClick={() => handleCategorySelect(null)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${selectedCategory === null
-                            ? 'bg-primary text-white'
-                            : 'bg-white text-text-secondary border border-border-primary hover:border-primary/40'
-                            }`}
+                        className={getCategoryButtonClass(selectedCategory === null)}
                     >All</button>
                     {categories.map(cat => (
                         <button
                             key={cat.id}
                             type="button"
                             onClick={() => handleCategorySelect(cat.id)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${selectedCategory === cat.id
-                                ? 'bg-primary text-white'
-                                : 'bg-white text-text-secondary border border-border-primary hover:border-primary/40'
-                                }`}
+                            className={getCategoryButtonClass(selectedCategory === cat.id)}
                         >
                             {cat.name}
                         </button>
@@ -360,6 +412,7 @@ export function CommunityGroupsList({
                         const hasChildren = item.hasChildren || (resolvedChildren && resolvedChildren.length > 0);
                         const isLoadingExpandedData = loadingExpandedIds.has(item.party.id);
                         const scopeLabel = getScopeLabel(item.party.location_scope);
+                        const createChapterHref = createChapterUrl(item.party);
 
                         return (
                             <div
@@ -369,7 +422,7 @@ export function CommunityGroupsList({
                                 <div className="flex items-start gap-3 p-4">
                                     {/* Main clickable area */}
                                     <Link
-                                        href={`/party/${item.party.id}`}
+                                        href={getPartyDetailsHref(item.party.id)}
                                         className="flex-1 min-w-0"
                                     >
                                         {/* Scope label */}
@@ -386,6 +439,11 @@ export function CommunityGroupsList({
                                         <h3 className="text-[15px] font-semibold text-text-primary leading-snug line-clamp-2 mt-0.5">
                                             {item.party.issue_text}
                                         </h3>
+                                        {item.parentName && (
+                                            <p className="text-xs text-text-muted mt-1">
+                                                Chapter of {item.parentName}
+                                            </p>
+                                        )}
 
                                         {/* Stats line */}
                                         <p className="text-xs text-text-muted mt-1.5">
@@ -399,38 +457,21 @@ export function CommunityGroupsList({
                                             <button
                                                 type="button"
                                                 className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
-                                                aria-label={isExpanded ? 'Collapse sub-groups' : 'Expand sub-groups'}
+                                                aria-label={isExpanded ? 'Collapse local chapters' : 'Expand local chapters'}
                                                 onClick={(e) => {
                                                     e.preventDefault();
                                                     e.stopPropagation();
                                                     toggleExpand(item.party.id, !!item.hasChildren);
                                                 }}
                                             >
-                                                <svg
-                                                    className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                </svg>
+                                                <ChevronIcon isExpanded={isExpanded} />
                                             </button>
                                         )}
                                         <Link
-                                            href={createPartyUrl({
-                                                parent: item.party.id,
-                                                category: item.party.category_id || null,
-                                                location_scope: item.party.location_scope || null,
-                                                location_label: item.party.location_label || null,
-                                                state_name: item.party.state_name || null,
-                                                district_name: item.party.district_name || null,
-                                                block_name: item.party.block_name || null,
-                                                panchayat_name: item.party.panchayat_name || null,
-                                                village_name: item.party.village_name || null,
-                                            })}
+                                            href={createChapterHref}
                                             className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-primary/5 transition-colors"
                                             onClick={(e) => e.stopPropagation()}
-                                            title="Start a sub-group"
+                                            title="Start a local chapter"
                                         >
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -443,11 +484,11 @@ export function CommunityGroupsList({
                                 {isExpanded && hasChildren && (
                                     <div className="border-t border-border-primary/50 bg-bg-secondary/30 px-4 py-2 space-y-0.5">
                                         {isLoadingExpandedData && (
-                                            <p className="text-xs text-text-muted py-1">Loading sub-groups...</p>
+                                            <p className="text-xs text-text-muted py-1">Loading local chapters...</p>
                                         )}
-                                        {renderHierarchyChildren(resolvedChildren)}
+                                        {renderHierarchyChildren(resolvedChildren, 0, item.party.issue_text)}
                                         {resolvedChildren && resolvedChildren.length === 0 && !isLoadingExpandedData && (
-                                            <p className="text-xs text-text-muted py-1">No sub-groups yet</p>
+                                            <p className="text-xs text-text-muted py-1">No local chapters yet</p>
                                         )}
                                     </div>
                                 )}
@@ -457,10 +498,10 @@ export function CommunityGroupsList({
                 ) : (
                     <div className="text-center py-12 px-4">
                         <h3 className="text-lg font-semibold text-text-primary mb-2">
-                            No groups found
+                            {EMPTY_STATE_TITLE}
                         </h3>
                         <p className="text-text-muted mb-4 text-sm">
-                            Be the first to start a group for this cause.
+                            {EMPTY_STATE_DESCRIPTION}
                         </p>
                         <Link
                             href="/party/create"

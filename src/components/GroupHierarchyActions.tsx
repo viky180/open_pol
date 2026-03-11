@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -46,9 +46,25 @@ export function GroupHierarchyActions({
     const [showPicker, setShowPicker] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedParent, setSelectedParent] = useState<PartyWithMemberCount | null>(null);
-    const [showDetachConfirm, setShowDetachConfirm] = useState(false);
+    const [showMakeIndependentConfirm, setShowMakeIndependentConfirm] = useState(false);
+    const [showMovementMenu, setShowMovementMenu] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const movementMenuRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (!showMovementMenu) return;
+
+        const handleOutsideClick = (event: MouseEvent) => {
+            if (!movementMenuRef.current?.contains(event.target as Node)) {
+                setShowMovementMenu(false);
+                setShowMakeIndependentConfirm(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, [showMovementMenu]);
 
     const postMoveWithTimeout = async (parentPartyId: string | null) => {
         const controller = new AbortController();
@@ -114,7 +130,7 @@ export function GroupHierarchyActions({
         }
     };
 
-    const handleDetach = async () => {
+    const handleMakeIndependent = async () => {
         if (isLoading) return;
         setIsLoading(true);
         setError(null);
@@ -122,13 +138,21 @@ export function GroupHierarchyActions({
         try {
             await postMoveWithTimeout(null);
 
-            setShowDetachConfirm(false);
+            setShowMakeIndependentConfirm(false);
+            setShowMovementMenu(false);
             onHierarchyChange();
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to detach group');
+            setError(err instanceof Error ? err.message : 'Failed to make group independent');
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const openMovementPicker = () => {
+        if (isLoading) return;
+        setShowMakeIndependentConfirm(false);
+        setShowMovementMenu(false);
+        setShowPicker(true);
     };
 
     const closePicker = () => {
@@ -169,9 +193,9 @@ export function GroupHierarchyActions({
             {/* --- Current Status + Actions --- */}
             <div className="rounded-xl border border-border-primary bg-bg-card p-4 space-y-3">
                 <div className="rounded-lg border border-border-primary bg-bg-tertiary/40 p-3">
-                    <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Community settings</p>
+                    <p className="text-xs uppercase tracking-[0.12em] text-text-muted">Group connections</p>
                     <p className="text-sm text-text-secondary mt-1">
-                        Choose a parent community or stay independent. Your group identity stays the same.
+                        Connect to a larger movement or stay independent. Your group identity stays the same.
                     </p>
                 </div>
 
@@ -182,7 +206,7 @@ export function GroupHierarchyActions({
                             📁
                         </span>
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs text-text-muted">In community</p>
+                            <p className="text-xs text-text-muted">Main movement</p>
                             <Link
                                 href={`/party/${currentParentParty.id}`}
                                 className="block font-medium text-text-primary truncate hover:text-primary hover:underline"
@@ -198,7 +222,7 @@ export function GroupHierarchyActions({
                         </span>
                         <div className="flex-1 min-w-0">
                             <p className="text-xs text-text-muted">Independent group</p>
-                            <p className="text-sm text-text-secondary">You can join a parent community any time.</p>
+                            <p className="text-sm text-text-secondary">Connect to a bigger movement any time.</p>
                         </div>
                         <span className="badge text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary">
                             {getLocationScopeConfig(party.location_scope || 'district').icon} {getLocationScopeConfig(party.location_scope || 'district').label}
@@ -217,12 +241,12 @@ export function GroupHierarchyActions({
                         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-1">
                             <p className="text-sm font-medium text-amber-700">Suggestion</p>
                             {daysSince !== null && daysSince > 14 && (
-                                <p className="text-xs text-amber-700">The parent group hasn&apos;t been active in {daysSince} days.</p>
+                                <p className="text-xs text-amber-700">The main movement hasn&apos;t been active in {daysSince} days.</p>
                             )}
                             {parentHasLeader === false && (
-                                <p className="text-xs text-amber-700">The parent group has no elected leader.</p>
+                                <p className="text-xs text-amber-700">The main movement has no elected leader.</p>
                             )}
-                            <p className="text-xs text-text-muted">If this parent is inactive, you can leave and stay independent.</p>
+                            <p className="text-xs text-text-muted">If this main movement is inactive, you can leave and stay independent.</p>
                         </div>
                     );
                 })()}
@@ -230,47 +254,68 @@ export function GroupHierarchyActions({
                 {/* Action buttons */}
                 {canManageHierarchy ? (
                     <div className="flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setShowPicker(true)}
-                            className="btn btn-primary btn-sm flex items-center gap-1.5"
-                        >
-                            📂 {currentParentParty ? 'Change parent community' : 'Join a parent community'}
-                        </button>
+                        <div ref={movementMenuRef} className="relative">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowMovementMenu((prev) => !prev);
+                                    setShowMakeIndependentConfirm(false);
+                                }}
+                                disabled={isLoading}
+                                aria-haspopup="menu"
+                                aria-expanded={showMovementMenu}
+                                className="btn btn-primary btn-sm"
+                            >
+                                Movement Settings
+                            </button>
 
-                        {currentParentParty && (
-                            <>
-                                {showDetachConfirm ? (
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                                        <span className="text-xs text-text-secondary">Leave parent community and stay independent?</span>
-                                        <button
-                                            type="button"
-                                            onClick={handleDetach}
-                                            disabled={isLoading}
-                                            className="text-xs font-medium text-red-500 hover:text-red-600"
-                                        >
-                                            {isLoading ? '...' : '✓ Yes'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowDetachConfirm(false)}
-                                            className="text-xs font-medium text-text-muted hover:text-text-primary"
-                                        >
-                                            ✗ No
-                                        </button>
-                                    </div>
-                                ) : (
+                            {showMovementMenu && (
+                                <div className="absolute left-0 top-full z-20 mt-2 w-64 rounded-xl border border-border-primary bg-bg-primary p-2 shadow-lg">
                                     <button
                                         type="button"
-                                        onClick={() => setShowDetachConfirm(true)}
+                                        onClick={openMovementPicker}
                                         disabled={isLoading}
-                                        className="btn btn-secondary btn-sm flex items-center gap-1.5"
+                                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-text-primary hover:bg-bg-tertiary"
                                     >
-                                        Leave parent community
+                                        {currentParentParty ? 'Switch movement' : 'Join a movement'}
                                     </button>
-                                )}
-                            </>
-                        )}
+
+                                    {currentParentParty && (
+                                        showMakeIndependentConfirm ? (
+                                            <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                                                <p className="text-xs text-text-secondary">Make this group independent?</p>
+                                                <div className="mt-2 flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleMakeIndependent}
+                                                        disabled={isLoading}
+                                                        className="text-xs font-medium text-red-500 hover:text-red-600"
+                                                    >
+                                                        {isLoading ? '...' : 'Yes'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowMakeIndependentConfirm(false)}
+                                                        className="text-xs font-medium text-text-muted hover:text-text-primary"
+                                                    >
+                                                        No
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowMakeIndependentConfirm(true)}
+                                                disabled={isLoading}
+                                                className="mt-1 w-full rounded-lg px-3 py-2 text-left text-sm text-text-primary hover:bg-bg-tertiary"
+                                            >
+                                                Make Independent
+                                            </button>
+                                        )
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
                         {isAdmin && (
                             <>
@@ -330,7 +375,7 @@ export function GroupHierarchyActions({
                         <div className="p-5 pb-3 border-b border-border-primary">
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-lg font-semibold text-text-primary">
-                                    📂 Choose parent community
+                                    📂 Join a movement
                                 </h3>
                                 <button
                                     type="button"
@@ -342,7 +387,7 @@ export function GroupHierarchyActions({
                                 </button>
                             </div>
                             <p className="text-sm text-text-secondary mb-3">
-                                Pick a parent community. You can switch later without losing members.
+                                Pick a movement to join. You can switch any time without losing members.
                             </p>
                             {/* Search */}
                             <div className="relative">
@@ -350,7 +395,7 @@ export function GroupHierarchyActions({
                                     type="text"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search communities..."
+                                    placeholder="Search movements..."
                                     className="w-full px-4 py-2.5 pl-10 rounded-xl bg-bg-tertiary border border-border-primary text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
                                     autoFocus
                                 />
@@ -369,7 +414,7 @@ export function GroupHierarchyActions({
                         <div className="max-h-[50vh] overflow-y-auto p-3 space-y-2">
                             {filteredParties.length === 0 ? (
                                 <div className="text-center py-8 text-sm text-text-muted">
-                                    {searchQuery ? 'No communities match your search' : 'No parent communities available'}
+                                    {searchQuery ? 'No movements match your search' : 'No movements available'}
                                 </div>
                             ) : (
                                 filteredParties.map((p) => {
@@ -465,11 +510,3 @@ export function GroupHierarchyActions({
         </>
     );
 }
-
-
-
-
-
-
-
-

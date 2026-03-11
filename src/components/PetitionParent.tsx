@@ -18,7 +18,7 @@ interface PetitionParentProps {
     parentPartyId: string | null;
     parentPartyName: string | null;
     isLeader: boolean;
-    /** True when viewing the parent group (to manage incoming petitions) */
+    /** True when viewing the main movement (to manage incoming petitions) */
     isParentView?: boolean;
 }
 
@@ -79,7 +79,7 @@ export function PetitionParent({
                 return;
             }
             setNewPetition('');
-            setSuccessMsg('Petition sent to parent group');
+            setSuccessMsg('Petition sent to main movement');
             setTimeout(() => setSuccessMsg(null), 3000);
             fetchPetitions();
         } catch {
@@ -104,7 +104,7 @@ export function PetitionParent({
         }
     };
 
-    // Don't render if there's no parent and we're not viewing as parent
+    // Don't render if there's no main movement and we're not viewing as main movement
     if (!parentPartyId && !isParentView) return null;
 
     const sentPetitions = petitions.filter(p => p.from_party_id === partyId);
@@ -115,23 +115,23 @@ export function PetitionParent({
         <div className="rounded-xl border border-border-primary bg-bg-card p-4 space-y-4">
             <div>
                 <p className="text-xs uppercase tracking-[0.12em] text-text-muted">
-                    {isParentView ? 'Petitions from sub-groups' : 'Petition the parent group'}
+                    {isParentView ? 'Petitions from local chapters' : 'Petition the main movement'}
                 </p>
                 <p className="text-sm text-text-secondary mt-1">
                     {isParentView
-                        ? 'Sub-groups can send you demands. Acknowledge or address them to maintain coalition trust.'
-                        : `Send structured demands to ${parentPartyName || 'the parent group'}. If they don\u2019t respond, consider walking away.`
+                        ? 'Local chapters can send you demands. Acknowledge or address them to maintain coalition trust.'
+                        : `Send structured demands to ${parentPartyName || 'the main movement'}. If they don\u2019t respond, consider walking away.`
                     }
                 </p>
             </div>
 
-            {/* Submit new petition (only for child group leaders) */}
+            {/* Submit new petition (only for local chapter leaders) */}
             {!isParentView && isLeader && parentPartyId && (
                 <div className="space-y-2">
                     <textarea
                         value={newPetition}
                         onChange={(e) => setNewPetition(e.target.value)}
-                        placeholder="What should the parent group do for your members? (min 10 characters)"
+                        placeholder="What should the main movement do for your members? (min 10 characters)"
                         className="w-full rounded-lg border border-border-primary bg-bg-secondary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted resize-none"
                         rows={3}
                         maxLength={2000}
@@ -162,7 +162,7 @@ export function PetitionParent({
                     </p>
                     {!isParentView && isLeader && (
                         <p className="text-xs text-text-muted mt-1">
-                            Use petitions to make your group&apos;s demands visible to the parent coalition.
+                            Use petitions to make your group&apos;s demands visible to the broader coalition.
                         </p>
                     )}
                 </div>
@@ -190,7 +190,7 @@ export function PetitionParent({
                                         })}
                                     </span>
 
-                                    {/* Parent group leader can update status */}
+                                    {/* Main movement leader can update status */}
                                     {isParentView && isLeader && petition.status !== 'addressed' && (
                                         <div className="flex gap-1">
                                             {petition.status === 'pending' && (

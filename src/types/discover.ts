@@ -1,6 +1,7 @@
-import type { Party } from '@/types/database';
+import type { Alliance, LocationScope, Party } from '@/types/database';
 
 export type GroupType = 'standalone' | 'parent';
+export type ExploreScope = 'india' | 'state' | 'district' | 'block' | 'ward' | 'village';
 
 export type HierarchyChild = {
     party: Party;
@@ -11,9 +12,30 @@ export type HierarchyChild = {
 export interface DiscoverGroupItem {
     party: Party;
     memberCount: number;
+    likeCount: number;
+    likedByMe?: boolean;
+    joinedByMe?: boolean;
+    trendPercent?: number;
     lastActiveAt?: string | null;
     type: GroupType;
     hasChildren?: boolean;
     children?: HierarchyChild[];
     parentName?: string;
+}
+
+export type DiscoverAllianceMember = {
+    partyId: string;
+    issueText: string;
+    locationScope: LocationScope | string | null;
+    locationLabel: string | null;
+    memberCount: number;
+};
+
+export interface DiscoverAllianceItem {
+    alliance: Alliance;
+    members: DiscoverAllianceMember[];
+    combinedMemberCount: number;
+    groupCount: number;
+    scopes: Array<LocationScope | string>;
+    trendPercent?: number;
 }

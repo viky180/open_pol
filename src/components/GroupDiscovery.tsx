@@ -10,6 +10,7 @@ interface GroupItem {
     party: Party;
     memberCount: number;
     lastActiveAt?: string | null;
+    parentName?: string;
 }
 
 interface GroupDiscoveryProps {
@@ -102,7 +103,7 @@ export function GroupDiscovery({
                 if (!issueMatch && !categoryMatch) return false;
             }
 
-            // Location scope filter
+            // Impact Area Filter
             if (!matchesLocationScope(item.party.location_scope, locationScopeFilter)) return false;
 
             // Activity filter
@@ -161,9 +162,9 @@ export function GroupDiscovery({
 
             {/* Filter Chips */}
             <div className="flex flex-wrap gap-2">
-                {/* Location Scope Filter */}
+                {/* Impact Area Filter */}
                 <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-text-muted uppercase tracking-wide">Level:</span>
+                    <span className="text-xs text-text-muted uppercase tracking-wide">Impact Area:</span>
                     <div className="flex gap-1 flex-wrap">
                         <button
                             type="button"
@@ -257,7 +258,7 @@ export function GroupDiscovery({
             {/* Group List */}
             {filteredGroups.length > 0 ? (
                 <div className="space-y-3">
-                    {filteredGroups.map(({ party, memberCount, lastActiveAt }) => (
+                    {filteredGroups.map(({ party, memberCount, lastActiveAt, parentName }) => (
                         <article
                             key={party.id}
                             className="card p-4 hover:border-primary/50 transition-all group"
@@ -269,6 +270,11 @@ export function GroupDiscovery({
                                     <h3 className="text-base font-medium text-text-primary leading-snug line-clamp-2">
                                         {party.issue_text}
                                     </h3>
+                                    {party.parent_party_id && parentName && (
+                                        <p className="text-xs text-text-muted mt-1">
+                                            Chapter of {parentName}
+                                        </p>
+                                    )}
 
                                     {/* Metadata Row */}
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-text-muted">
@@ -317,9 +323,9 @@ export function GroupDiscovery({
                                             village_name: party.village_name || null,
                                         })}
                                         className="btn btn-secondary btn-sm whitespace-nowrap"
-                                        title="Create a child group to support this group"
+                                        title="Start a local chapter for this movement"
                                     >
-                                        ➕ Child group
+                                        + Local chapter
                                     </Link>
                                     <Link
                                         href={`/party/${party.id}`}
@@ -372,3 +378,4 @@ export function GroupDiscovery({
         </div>
     );
 }
+
