@@ -92,6 +92,41 @@ export async function GET(request: NextRequest) {
     const hasMore = rows.length > limit;
     const parties = hasMore ? rows.slice(0, limit) : rows;
 
+    // Enrich parties with issue_name.
+    // NOTE: The parties_with_member_counts view was created before issue_id was added to the
+    // parties table. PostgreSQL views with `p.*` don't auto-expand to include new columns unless
+    // the view is recreated. So we look up issue_id directly from the parties table, then join issues.
+    const partyIds = parties.map((p: Record<string, unknown>) => p.id as string);
+    let issueNameMap: Record<string, string> = {};
+    if (partyIds.length > 0) {
+        const { data: partyRows } = await supabase
+            .from('parties')
+            .select('id, issue_id')
+            .in('id', partyIds);
+
+        const issueIds = [...new Set((partyRows || []).map(r => r.issue_id).filter(Boolean) as string[])];
+        if (issueIds.length > 0) {
+            const { data: issueRows } = await supabase
+                .from('issues')
+                .select('id, issue_text')
+                .in('id', issueIds);
+            const issueMap: Record<string, string> = {};
+            for (const row of (issueRows || [])) {
+                issueMap[row.id] = row.issue_text;
+            }
+            // Build partyId -> issue_name map
+            for (const row of (partyRows || [])) {
+                if (row.issue_id && issueMap[row.issue_id]) {
+                    issueNameMap[row.id] = issueMap[row.issue_id];
+                }
+            }
+        }
+    }
+    const enrichedParties = parties.map((p: Record<string, unknown>) => ({
+        ...p,
+        issue_name: issueNameMap[p.id as string] ?? null,
+    }));
+
     let total: number | null = null;
     if (includeTotal) {
         let countQuery = supabase
@@ -134,7 +169,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-        parties,
+        parties: enrichedParties,
         total,
         hasMore,
         offset,

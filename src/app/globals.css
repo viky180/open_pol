@@ -571,7 +571,7 @@
   }
 
   .issue-card {
-    @apply relative overflow-hidden border p-4 sm:p-5;
+    @apply relative border p-4 sm:p-5;
     border-radius: 18px;
     border-color: rgba(41, 31, 18, 0.12);
     background:

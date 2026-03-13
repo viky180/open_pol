@@ -2,48 +2,35 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useRef, useEffect, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { MemberWithVotes, Party } from '@/types/database';
-import { LOCATION_SCOPE_LEVELS, getLocationScopeConfig, getPartyLocationLabel } from '@/types/database';
+import { getLocationScopeConfig, getPartyLocationLabel } from '@/types/database';
 import { GroupIconBadge } from './PartyPrimitives';
 
 interface HeroSectionProps {
     party: Party;
     memberCount: number;
     leader: MemberWithVotes | null;
-    // Icon state (live — may differ from party.icon_svg after edit)
     iconSvg: string | null;
     iconImageUrl: string | null;
     canEditPartyIcon: boolean;
-    // Membership
     optimisticIsMember: boolean;
     memberSince: string | null;
     joinLoading: boolean;
     joinDisabled: boolean;
     hasMembershipElsewhere: boolean;
     singleMembershipHint: string;
-    // Secondary action hrefs
     createChildGroupHref: string;
     createChildGroupLabel: string;
     createForkHref: string;
     siblingGroups: Array<{ id: string; issue_text: string; icon_svg?: string | null; icon_image_url?: string | null; memberCount: number }>;
-    // Alliance / governing
     currentAlliance: { id: string; name: string } | null;
     isGoverning: boolean;
-    levelNavigationTargets: Array<{
-        id: string;
-        issue_text: string;
-        location_scope: string;
-        is_current: boolean;
-    }>;
-    // Callbacks
     onJoin: () => void;
     onShare: () => void;
     onOpenTitleImage: () => void;
     onOpenIconPreview: () => void;
     onOpenIconEditor: () => void;
-    // Sticky header state (driven by IntersectionObserver in parent)
     heroRef: RefObject<HTMLHeadingElement | null>;
     stickyVisible: boolean;
 }
@@ -67,7 +54,6 @@ export function HeroSection({
     siblingGroups,
     currentAlliance,
     isGoverning,
-    levelNavigationTargets,
     onJoin,
     onShare,
     onOpenTitleImage,
@@ -76,63 +62,17 @@ export function HeroSection({
     heroRef,
     stickyVisible,
 }: HeroSectionProps) {
-    const router = useRouter();
     const locationScope = getLocationScopeConfig(party.location_scope || 'district');
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const [showSiblingMenu, setShowSiblingMenu] = useState(false);
-    const [selectedNavigatorScope, setSelectedNavigatorScope] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const siblingMenuRef = useRef<HTMLDivElement>(null);
-    const levelNavigatorRef = useRef<HTMLDivElement>(null);
-
-    const navigableLevels = LOCATION_SCOPE_LEVELS.filter((level) => level.value !== 'national');
-    const levelTargetsMap = new Map<string, HeroSectionProps['levelNavigationTargets']>(
-        navigableLevels.map((level) => [level.value, []])
-    );
-
-    for (const target of levelNavigationTargets) {
-        const levelTargets = levelTargetsMap.get(target.location_scope) || [];
-        levelTargets.push(target);
-        levelTargetsMap.set(target.location_scope, levelTargets);
-    }
-
-    for (const [scope, targets] of levelTargetsMap.entries()) {
-        levelTargetsMap.set(
-            scope,
-            [...targets].sort((a, b) => {
-                if (a.is_current && !b.is_current) return -1;
-                if (!a.is_current && b.is_current) return 1;
-                return a.issue_text.localeCompare(b.issue_text);
-            })
-        );
-    }
-
-    const chooserTargets = selectedNavigatorScope
-        ? levelTargetsMap.get(selectedNavigatorScope) || []
-        : [];
-
-    const handleScopeClick = (scope: string) => {
-        const targets = levelTargetsMap.get(scope) || [];
-        if (targets.length === 0) return;
-
-        if (targets.length === 1) {
-            const [target] = targets;
-            if (target.id !== party.id) {
-                router.push(`/party/${target.id}`);
-            }
-            setSelectedNavigatorScope(null);
-            return;
-        }
-
-        setSelectedNavigatorScope((prev) => (prev === scope ? null : scope));
-    };
 
     useEffect(() => {
         if (!showActionsMenu) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (!menuRef.current) return;
-            if (!menuRef.current.contains(event.target as Node)) {
+            if (!menuRef.current?.contains(event.target as Node)) {
                 setShowActionsMenu(false);
             }
         };
@@ -154,8 +94,7 @@ export function HeroSection({
         if (!showSiblingMenu) return;
 
         const handleClickOutside = (event: MouseEvent) => {
-            if (!siblingMenuRef.current) return;
-            if (!siblingMenuRef.current.contains(event.target as Node)) {
+            if (!siblingMenuRef.current?.contains(event.target as Node)) {
                 setShowSiblingMenu(false);
             }
         };
@@ -173,36 +112,12 @@ export function HeroSection({
         };
     }, [showSiblingMenu]);
 
-    useEffect(() => {
-        if (!selectedNavigatorScope) return;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (!levelNavigatorRef.current) return;
-            if (!levelNavigatorRef.current.contains(event.target as Node)) {
-                setSelectedNavigatorScope(null);
-            }
-        };
-
-        const handleEscape = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setSelectedNavigatorScope(null);
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        document.addEventListener('keydown', handleEscape);
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            document.removeEventListener('keydown', handleEscape);
-        };
-    }, [selectedNavigatorScope]);
-
     return (
         <>
-            {/* ── Sticky mini-header (appears on scroll) ─── */}
             <div
-                className={`fixed top-0 inset-x-0 z-40 transition-all duration-300 ${stickyVisible ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-full pointer-events-none'}`}
+                className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${stickyVisible ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-full opacity-0'}`}
             >
-                <div className="border-b border-border-primary bg-bg-primary/90 backdrop-blur-md shadow-sm">
+                <div className="border-b border-border-primary bg-bg-primary/90 shadow-sm backdrop-blur-md">
                     <div className="container mx-auto flex max-w-3xl items-center justify-between gap-3 px-5 py-2.5">
                         <div className="flex min-w-0 items-center gap-2">
                             <GroupIconBadge name={party.issue_text} iconSvg={iconSvg} iconImageUrl={iconImageUrl} size={28} />
@@ -212,19 +127,17 @@ export function HeroSection({
                             <button type="button" onClick={onShare} className="btn btn-secondary btn-sm">Share</button>
                             {!optimisticIsMember ? (
                                 <button type="button" onClick={onJoin} disabled={joinDisabled || joinLoading} className="btn btn-primary btn-sm">
-                                    {joinLoading ? 'Joining…' : 'Join'}
+                                    {joinLoading ? 'Joining...' : 'Join'}
                                 </button>
                             ) : (
-                                <span className="inline-flex items-center rounded-md bg-primary/10 px-3 py-1 text-xs font-medium text-primary">✓ Joined</span>
+                                <span className="inline-flex items-center rounded-md bg-primary/10 px-3 py-1 text-xs font-medium text-primary">Joined</span>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* ── Hero ──────────────────────────────────────── */}
             <section className="pb-6">
-                {/* Banner image or gradient placeholder */}
                 <div className="relative mb-4">
                     <div className="overflow-hidden rounded-xl border border-border-primary bg-bg-tertiary">
                         {party.title_image_url ? (
@@ -243,7 +156,6 @@ export function HeroSection({
                         )}
                     </div>
 
-                    {/* Banner-right actions (reddit-style) */}
                     <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
                         {!optimisticIsMember ? (
                             <button
@@ -252,7 +164,7 @@ export function HeroSection({
                                 disabled={joinDisabled || joinLoading}
                                 className="btn btn-primary btn-sm shadow-sm"
                             >
-                                {joinLoading ? 'Joining…' : 'Join'}
+                                {joinLoading ? 'Joining...' : 'Join'}
                             </button>
                         ) : (
                             <span className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
@@ -286,7 +198,7 @@ export function HeroSection({
                                 aria-expanded={showActionsMenu}
                                 title="More"
                             >
-                                <span aria-hidden="true" className="text-lg leading-none">⋮</span>
+                                <span aria-hidden="true" className="text-lg leading-none">...</span>
                             </button>
 
                             {showActionsMenu && (
@@ -318,94 +230,8 @@ export function HeroSection({
                     </div>
                 </div>
 
-                {/* Location breadcrumb */}
-                <p className="text-sm text-text-muted mb-3">{locationScope.label} · {getPartyLocationLabel(party)}</p>
+                <p className="mb-3 text-sm text-text-muted">{locationScope.label} · {getPartyLocationLabel(party)}</p>
 
-                {/* Clickable level navigator */}
-                <div className="mb-4" ref={levelNavigatorRef}>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-text-muted">Jump to level</p>
-                    <nav aria-label="Level Navigator">
-                        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-                            {navigableLevels.map((level) => {
-                                const targets = levelTargetsMap.get(level.value) || [];
-                                const hasTargets = targets.length > 0;
-                                const hasMultipleTargets = targets.length > 1;
-                                const isActiveLevel = (party.location_scope || 'district') === level.value;
-                                const isCurrentOnlyTarget = targets.length === 1 && targets[0].is_current;
-                                const isExpanded = selectedNavigatorScope === level.value;
-
-                                return (
-                                    <button
-                                        key={level.value}
-                                        type="button"
-                                        onClick={() => handleScopeClick(level.value)}
-                                        disabled={!hasTargets || isCurrentOnlyTarget}
-                                        aria-current={isActiveLevel ? 'page' : undefined}
-                                        aria-expanded={hasMultipleTargets ? isExpanded : undefined}
-                                        aria-controls={hasMultipleTargets ? `level-options-${level.value}` : undefined}
-                                        className={`shrink-0 rounded-full border px-3 py-1.5 text-xs transition ${isActiveLevel
-                                            ? 'border-primary bg-primary/10 text-primary-light font-semibold'
-                                            : hasTargets
-                                                ? 'border-border-primary bg-bg-secondary text-text-secondary hover:bg-bg-tertiary'
-                                                : 'border-border-primary/60 bg-bg-tertiary/40 text-text-muted cursor-not-allowed'
-                                            } ${isExpanded ? 'ring-2 ring-primary/20' : ''}`}
-                                    >
-                                        {level.icon} {level.label}
-                                        {hasMultipleTargets ? ` (${targets.length})` : ''}
-                                        {isCurrentOnlyTarget ? ' • Current' : ''}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </nav>
-
-                    {selectedNavigatorScope && chooserTargets.length > 1 && (
-                        <div
-                            id={`level-options-${selectedNavigatorScope}`}
-                            role="region"
-                            aria-label={`Choose ${getLocationScopeConfig(selectedNavigatorScope).label} group`}
-                            className="mt-3 rounded-xl border border-border-primary bg-bg-secondary/60 p-2"
-                        >
-                            <div className="mb-2 flex items-center justify-between px-1">
-                                <p className="text-xs font-semibold text-text-secondary">
-                                    Choose {getLocationScopeConfig(selectedNavigatorScope).label} group
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedNavigatorScope(null)}
-                                    className="rounded-md px-2 py-1 text-xs text-text-muted hover:bg-bg-primary hover:text-text-primary"
-                                >
-                                    Close
-                                </button>
-                            </div>
-                            <div className="space-y-1">
-                                {chooserTargets.map((target) => (
-                                    <button
-                                        key={target.id}
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedNavigatorScope(null);
-                                            if (!target.is_current) {
-                                                router.push(`/party/${target.id}`);
-                                            }
-                                        }}
-                                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${target.is_current
-                                            ? 'border border-primary/40 bg-primary/10 text-primary-light'
-                                            : 'text-text-primary hover:bg-bg-primary'
-                                            }`}
-                                    >
-                                        <span className="line-clamp-2">{target.issue_text}</span>
-                                        {target.is_current && (
-                                            <span className="mt-1 inline-block text-xs text-primary">Current group</span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Title row */}
                 <div className="flex items-start gap-3">
                     <GroupIconBadge
                         name={party.issue_text}
@@ -420,7 +246,7 @@ export function HeroSection({
                     <div className="min-w-0 flex-1">
                         <h1
                             ref={heroRef}
-                            className="text-3xl sm:text-4xl font-semibold leading-tight text-text-primary"
+                            className="text-3xl font-semibold leading-tight text-text-primary sm:text-4xl"
                             style={{ fontFamily: 'var(--font-display)' }}
                         >
                             {party.issue_text}
@@ -482,43 +308,41 @@ export function HeroSection({
                     )}
                 </div>
 
-                {/* Alliance link */}
                 {currentAlliance && (
                     <div className="mt-2">
                         <Link
                             href={`/alliance/${currentAlliance.id}`}
-                            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline hover:text-primary-dark transition-colors"
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary-dark hover:underline"
                         >
-                            🤝 Member of <strong>{currentAlliance.name}</strong> Alliance
+                            Member of <strong>{currentAlliance.name}</strong> Alliance
                         </Link>
                     </div>
                 )}
 
-                {/* Governing badge */}
                 {isGoverning && (
-                    <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-xs font-semibold text-amber-600 uppercase tracking-wider">
-                        🏛️ Governing Coalition
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-amber-600">
+                        Governing coalition
                     </div>
                 )}
 
-                {/* Stats — inline pill row, visible on all screens */}
                 <div className="mt-5 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-bg-secondary border border-border-primary text-text-secondary">
-                        👥 {memberCount.toLocaleString('en-IN')} {memberCount === 1 ? 'member' : 'members'}
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border-primary bg-bg-secondary px-3 py-1 text-sm font-medium text-text-secondary">
+                        {memberCount.toLocaleString('en-IN')} {memberCount === 1 ? 'member' : 'members'}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-bg-secondary border border-border-primary text-text-secondary">
-                        👤 {leader ? (leader.display_name || 'Anonymous') : 'No voice yet'}
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border-primary bg-bg-secondary px-3 py-1 text-sm font-medium text-text-secondary">
+                        {leader ? (leader.display_name || 'Anonymous') : 'No voice yet'}
                     </span>
                 </div>
 
-                {/* Hero inline Join / membership status — visible on all screens */}
                 <div className="mt-5">
                     {optimisticIsMember ? (
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 border border-primary/30 px-3 py-1.5 text-sm font-medium text-primary">
-                                ✓ You&apos;re in
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
+                                You&apos;re in
                                 {memberSince && (
-                                    <span className="text-xs text-primary/70 ml-1">since {new Date(memberSince).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
+                                    <span className="ml-1 text-xs text-primary/70">
+                                        since {new Date(memberSince).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                                    </span>
                                 )}
                             </span>
                         </div>
@@ -530,23 +354,22 @@ export function HeroSection({
                                 disabled={joinDisabled || joinLoading}
                                 className="btn btn-primary"
                             >
-                                {joinLoading ? 'Joining…' : 'Join This Group'}
+                                {joinLoading ? 'Joining...' : 'Join This Group'}
                             </button>
                             {hasMembershipElsewhere && (
-                                <p className="text-xs text-text-muted max-w-xs">{singleMembershipHint}</p>
+                                <p className="max-w-xs text-xs text-text-muted">{singleMembershipHint}</p>
                             )}
                         </div>
                     )}
                 </div>
             </section>
 
-            {/* ── Mobile sticky bottom action bar (always shown on small screens) ── */}
-            <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden animate-fade-in">
-                <div className="border-t border-border-primary bg-bg-primary/95 backdrop-blur-md px-4 py-3 shadow-lg">
+            <div className="fixed inset-x-0 bottom-0 z-40 animate-fade-in sm:hidden">
+                <div className="border-t border-border-primary bg-bg-primary/95 px-4 py-3 shadow-lg backdrop-blur-md">
                     <div className="flex items-center gap-3">
                         {optimisticIsMember ? (
-                            <div className="flex-1 flex items-center gap-1.5 justify-center rounded-lg bg-primary/10 border border-primary/20 py-2.5 text-sm font-medium text-primary">
-                                ✓ You&apos;re in
+                            <div className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-primary/10 py-2.5 text-sm font-medium text-primary">
+                                You&apos;re in
                             </div>
                         ) : (
                             <button
@@ -555,7 +378,7 @@ export function HeroSection({
                                 disabled={joinDisabled || joinLoading}
                                 className="btn btn-primary flex-1 py-2.5 text-base"
                             >
-                                {joinLoading ? 'Joining…' : 'Join Group'}
+                                {joinLoading ? 'Joining...' : 'Join Group'}
                             </button>
                         )}
                         <button
@@ -565,7 +388,7 @@ export function HeroSection({
                             aria-label="Share group"
                             title="Share"
                         >
-                            ↗
+                            Share
                         </button>
                     </div>
                     {hasMembershipElsewhere && !optimisticIsMember && (
@@ -573,7 +396,6 @@ export function HeroSection({
                     )}
                 </div>
             </div>
-
         </>
     );
 }

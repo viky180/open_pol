@@ -68,14 +68,14 @@ export function PartyDetailTabs({ activeTab, onChange }: PartyDetailTabsProps) {
             id="party-tabs"
             className="issue-segment-bar sticky top-3 z-20 shadow-[0_10px_28px_rgba(21,33,23,0.08)] backdrop-blur-sm"
             role="tablist"
-            aria-label="Group detail sections"
+            aria-label="Group page sections"
         >
             {([
-                ['about', 'Overview'],
-                ['activity', 'Activity'],
+                ['about', 'About'],
+                ['activity', 'Updates'],
                 ['people', 'Members'],
                 ['petitions', 'Petitions'],
-                ['alliances', 'Coalitions'],
+                ['alliances', 'Alliances'],
             ] as Array<[PartyDetailTabId, string]>).map(([id, label]) => (
                 <button
                     id={`party-tab-${id}`}
@@ -98,19 +98,12 @@ export function PartyDetailTabs({ activeTab, onChange }: PartyDetailTabsProps) {
 interface AboutTabPanelProps {
     party: Party;
     currentParentParty: Party | null;
-    testimonials: string[];
 }
 
 export function AboutTabPanel({
     party,
     currentParentParty,
-    testimonials,
 }: AboutTabPanelProps) {
-    const fallbackTestimonials = [
-        '"People here listen and act quickly."',
-        '"I finally feel represented on this issue."',
-    ];
-
     return (
         <section
             id="party-panel-about"
@@ -118,18 +111,17 @@ export function AboutTabPanel({
             aria-labelledby="party-tab-about"
             className="issue-card animate-fade-in"
         >
-            <PanelHeader label="About this group" title="What this group is building" />
+            <PanelHeader label="About this group" title="What this group does" />
             <p className="text-sm leading-7 text-text-secondary">
-                {party.issue_text}. This group gathers local members around one clear public demand,
-                pushes that support upward through the representation path above, and keeps leadership accountable in
-                public.
+                {party.issue_text}. This group brings people together around one public demand,
+                helps that support move up the path above, and keeps leadership accountable in public.
             </p>
 
             <div className="issue-section-rule" />
 
             <div className="mt-4 grid gap-3">
                 <div className="rounded-2xl border border-border-primary bg-bg-secondary/70 p-4">
-                    <p className="issue-section-kicker">Parent group</p>
+                    <p className="issue-section-kicker">Next level up</p>
                     {currentParentParty ? (
                         <Link
                             href={`/party/${currentParentParty.id}`}
@@ -138,22 +130,8 @@ export function AboutTabPanel({
                             {currentParentParty.issue_text}
                         </Link>
                     ) : (
-                        <p className="mt-2 text-sm text-text-muted">No parent group linked yet.</p>
+                        <p className="mt-2 text-sm text-text-muted">No next-level group linked yet.</p>
                     )}
-                </div>
-
-                <div className="rounded-2xl border border-border-primary bg-bg-secondary/70 p-4">
-                    <p className="issue-section-kicker">Member comments</p>
-                    <div className="mt-3 space-y-3">
-                        {(testimonials.length > 0 ? testimonials : fallbackTestimonials).map((quote, index) => (
-                            <p
-                                key={`${quote}-${index}`}
-                                className="rounded-xl border border-border-primary bg-bg-card px-3 py-3 text-sm italic text-text-secondary"
-                            >
-                                {quote}
-                            </p>
-                        ))}
-                    </div>
                 </div>
             </div>
         </section>
@@ -172,11 +150,11 @@ export function ActivityTabPanel({ activityItems }: ActivityTabPanelProps) {
             aria-labelledby="party-tab-activity"
             className="issue-card animate-fade-in"
         >
-            <PanelHeader label="Timeline" title="Latest public movement" />
+            <PanelHeader label="Timeline" title="Latest updates" />
             <div className="space-y-3">
                 {activityItems.length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-border-secondary bg-bg-secondary px-4 py-8 text-center text-sm text-text-muted">
-                        No activity yet.
+                        Nothing public here yet.
                     </p>
                 ) : (
                     activityItems.map((item) => (
@@ -221,7 +199,7 @@ export function PeopleTabPanel({
         >
             <PanelHeader
                 label="People"
-                title={`${memberCountLive.toLocaleString('en-IN')} members here`}
+                title={`${memberCountLive.toLocaleString('en-IN')} members in this group`}
                 action={
                     <label className="inline-flex items-center gap-2 rounded-full border border-border-primary bg-bg-secondary px-3 py-2 text-xs font-semibold text-text-secondary">
                         <input
@@ -244,11 +222,11 @@ export function PeopleTabPanel({
                                 </div>
                                 <div className="min-w-0">
                                     <p className="truncate text-sm font-semibold text-text-primary">{person.display}</p>
-                                    <p className="text-xs text-text-muted">Joined {person.joined}</p>
+                                    <p className="text-xs text-text-muted">Joined on {person.joined}</p>
                                 </div>
                             </div>
                             <span className="rounded-full border border-border-primary bg-bg-card px-3 py-1 text-xs font-semibold text-text-secondary">
-                                Support {person.trust}
+                                {person.trust} trust vote{person.trust !== 1 ? 's' : ''}
                             </span>
                         </div>
                     </div>
@@ -278,14 +256,14 @@ export function PetitionsTabPanel({
         >
             <PanelHeader
                 label="Petitions"
-                title="Campaign public support"
+                title="Public petition campaigns"
                 action={canStartNewPetition ? (
                     <button
                         type="button"
                         onClick={onStartNewPetition}
                         className="btn btn-primary btn-sm"
                     >
-                        Start New Petition
+                        Start petition
                     </button>
                 ) : undefined}
             />
@@ -294,8 +272,8 @@ export function PetitionsTabPanel({
                 {petitionCampaigns.length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-border-secondary bg-bg-secondary px-4 py-8 text-center text-sm text-text-muted">
                         {canStartNewPetition
-                            ? 'No active petitions right now. Start the first campaign for this group.'
-                            : 'No active petitions right now.'}
+                            ? 'No active petitions yet. Start the first one for this group.'
+                            : 'No active petitions yet.'}
                     </p>
                 ) : (
                     petitionCampaigns.map((campaign) => {
@@ -309,7 +287,7 @@ export function PetitionsTabPanel({
                                 <div className="flex items-start justify-between gap-2">
                                     <p className="text-sm font-semibold text-text-primary">{campaign.title}</p>
                                     <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                                        {campaign.status}
+                                        {campaign.status.replace(/_/g, ' ')}
                                     </span>
                                 </div>
                                 <p className="mt-2 text-sm leading-6 text-text-secondary">{campaign.description}</p>
@@ -320,7 +298,7 @@ export function PetitionsTabPanel({
                                     {campaign.signatures.toLocaleString('en-IN')} / {campaign.target_signatures.toLocaleString('en-IN')} signatures
                                 </p>
                                 <p className="mt-1 text-xs text-text-muted">
-                                    Ends{' '}
+                                    Ends on{' '}
                                     {new Date(campaign.ends_at).toLocaleDateString('en-IN', {
                                         day: 'numeric',
                                         month: 'short',
@@ -349,11 +327,11 @@ export function AlliancesTabPanel({ currentAlliance }: AlliancesTabPanelProps) {
             className="issue-card animate-fade-in"
         >
             <PanelHeader
-                label="Coalitions"
-                title="Coalition and combined reach"
+                label="Alliances"
+                title="This group's alliances"
                 action={
                     <Link href="/alliance/create" className="btn btn-secondary btn-sm">
-                        Propose coalition
+                        Create alliance
                     </Link>
                 }
             />
@@ -363,7 +341,7 @@ export function AlliancesTabPanel({ currentAlliance }: AlliancesTabPanelProps) {
                     <p className="text-base font-semibold text-text-primary">{currentAlliance.name}</p>
                     <div className="mt-3 grid grid-cols-2 gap-3">
                         <div className="rounded-2xl border border-border-primary bg-bg-card px-3 py-3">
-                            <p className="issue-section-kicker">Combined Members</p>
+                            <p className="issue-section-kicker">Members across alliance</p>
                             <p className="mt-2 text-2xl text-primary" style={{ fontFamily: 'var(--font-display)' }}>
                                 {currentAlliance.combinedMemberCount.toLocaleString('en-IN')}
                             </p>
@@ -379,12 +357,12 @@ export function AlliancesTabPanel({ currentAlliance }: AlliancesTabPanelProps) {
                         href={`/alliance/${currentAlliance.id}`}
                         className="mt-4 inline-flex text-sm font-semibold text-primary hover:underline"
                     >
-                        Open alliance details
+                        View alliance
                     </Link>
                 </div>
             ) : (
                 <p className="rounded-2xl border border-dashed border-border-secondary bg-bg-secondary px-4 py-8 text-center text-sm text-text-muted">
-                    No current alliance for this group.
+                    This group is not in an alliance yet.
                 </p>
             )}
         </section>
@@ -398,11 +376,11 @@ interface RecentActivityPanelProps {
 export function RecentActivityPanel({ activityItems }: RecentActivityPanelProps) {
     return (
         <section className="issue-card issue-card--soft animate-fade-in">
-            <PanelHeader label="Quick Read" title="A few recent signals" />
+            <PanelHeader label="Quick read" title="Recent updates" />
             <div className="space-y-3">
                 {activityItems.length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-border-secondary bg-bg-card px-4 py-8 text-center text-sm text-text-muted">
-                        No recent items yet.
+                        No recent updates yet.
                     </p>
                 ) : (
                     activityItems.map((item) => (

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type { MemberWithVotes } from '@/types/database';
 import { TrustSelectionScreen } from '@/components/TrustSelectionScreen';
-import type { JoinGroupOption } from '../hooks/usePartyMembership';
+
 import { GroupIconBadge, getGroupIconSrc } from './PartyPrimitives';
 
 /* ── Leave Modal ── */
@@ -23,23 +23,23 @@ export function LeaveModal({ partyIssueText, joinLoading, onCancel, onLeave }: L
             <div className="card max-w-md w-full">
                 <div className="mb-4">
                     <div className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                        Walking away from group
+                        Leave group
                     </div>
                     <h2 className="text-lg font-semibold text-text-primary mt-2">
                         Leave {partyIssueText || 'this group'}?
                     </h2>
                     <p className="text-sm text-text-secondary mt-2">
-                        You&apos;ll no longer be represented by this group, and your weight will be removed from its coalition.
+                        You will stop being represented by this group, and your support will no longer add to its wider reach.
                     </p>
                 </div>
                 <div className="rounded-xl border border-border-primary bg-bg-tertiary p-4 text-sm text-text-secondary">
                     <p className="text-xs uppercase tracking-[0.2em] text-text-muted mb-2">
-                        What changes now
+                        What happens next
                     </p>
                     <ul className="list-disc pl-5 space-y-1">
-                        <li>Your choice is removed immediately</li>
-                        <li>Representation ends</li>
-                        <li>You can join another group anytime</li>
+                        <li>You stop being a member right away</li>
+                        <li>This group no longer speaks for you</li>
+                        <li>You can join another group any time</li>
                     </ul>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -75,10 +75,10 @@ export function AuthModal({ partyId, onCancel }: AuthModalProps) {
     return (
         <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4">
             <div className="card max-w-md w-full">
-                <h3 className="text-lg font-semibold mb-2">Create an account to join</h3>
+                <h3 className="text-lg font-semibold mb-2">Sign in to join this group</h3>
                 <p className="text-sm text-text-secondary mb-4">
-                    We need a verified account so voting stays secure and one-person-one-vote is enforced.
-                    You&apos;ll also be able to participate in Q&A and alliances.
+                    You need an account so votes stay secure and each person gets one vote.
+                    You&apos;ll also be able to ask questions and join alliances.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                     <button
@@ -98,91 +98,13 @@ export function AuthModal({ partyId, onCancel }: AuthModalProps) {
                     </button>
                 </div>
                 <p className="text-xs text-text-muted mt-4 text-center">
-                    🔒 We never sell your data.
+                    We never sell your data.
                 </p>
             </div>
         </div>
     );
 }
 
-/* ── Join Group Selection Modal ── */
-
-interface JoinGroupSelectionModalProps {
-    options: JoinGroupOption[];
-    joinLoading: boolean;
-    onSelect: (partyId: string) => void;
-    onCancel: () => void;
-}
-
-const RELATION_LABEL: Record<JoinGroupOption['relation'], string> = {
-    current: 'This group',
-    sibling: 'Other chapter',
-    child: 'Local chapter',
-};
-
-export function JoinGroupSelectionModal({ options, joinLoading, onSelect, onCancel }: JoinGroupSelectionModalProps) {
-    const hasSiblingOptions = options.some((option) => option.relation === 'sibling');
-    const hasChildOptions = options.some((option) => option.relation === 'child');
-
-    const sortedOptions = [...options].sort((a, b) => {
-        if (a.relation === 'current' && b.relation !== 'current') return -1;
-        if (a.relation !== 'current' && b.relation === 'current') return 1;
-        return b.memberCount - a.memberCount;
-    });
-
-    return (
-        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4">
-            <div className="card max-w-lg w-full">
-                <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-text-primary">Choose a chapter to join</h3>
-                    <p className="mt-1 text-sm text-text-secondary">
-                        {hasSiblingOptions && hasChildOptions
-                            ? 'You can join this group, a nearby sibling chapter, or a local chapter below it.'
-                            : hasChildOptions
-                                ? 'Local chapters are available. Pick one for direct local representation.'
-                                : 'Other chapters are available in this area. Pick one to join.'}
-                    </p>
-                </div>
-
-                <div className="max-h-[60vh] overflow-y-auto space-y-2">
-                    {sortedOptions.map((option) => (
-                        <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => onSelect(option.id)}
-                            disabled={joinLoading}
-                            className="w-full rounded-lg border border-border-primary bg-bg-tertiary/40 px-3 py-2 text-left transition hover:bg-bg-tertiary disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0 flex items-center gap-2">
-                                    <GroupIconBadge
-                                        name={option.issue_text}
-                                        iconSvg={option.icon_svg || null}
-                                        iconImageUrl={option.icon_image_url || null}
-                                        size={28}
-                                    />
-                                    <div className="min-w-0">
-                                        <p className="line-clamp-1 text-sm font-medium text-text-primary">{option.issue_text}</p>
-                                        <p className="text-xs text-text-muted">{RELATION_LABEL[option.relation]}</p>
-                                    </div>
-                                </div>
-                                <span className="shrink-0 text-xs text-text-muted">
-                                    {option.memberCount} {option.memberCount === 1 ? 'member' : 'members'}
-                                </span>
-                            </div>
-                        </button>
-                    ))}
-                </div>
-
-                <div className="mt-4 flex justify-end">
-                    <button type="button" onClick={onCancel} className="btn btn-secondary" disabled={joinLoading}>
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 /* ── Trust Selection Modal ── */
 
@@ -265,13 +187,13 @@ export function PetitionCampaignModal({
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <div className="text-xs uppercase tracking-[0.2em] text-text-muted">
-                            Petition campaign
+                            Petition
                         </div>
                         <h3 className="mt-2 text-lg font-semibold text-text-primary">
-                            Start a petition for {partyIssueText}
+                            Create a petition for {partyIssueText}
                         </h3>
                         <p className="mt-2 text-sm text-text-secondary">
-                            Launch a public signature campaign with a target and deadline.
+                            Launch a public signature campaign with a goal and deadline.
                         </p>
                     </div>
                     <button type="button" className="btn btn-secondary btn-sm" onClick={onClose} disabled={submitting}>
@@ -287,7 +209,7 @@ export function PetitionCampaignModal({
                             className="input mt-2"
                             value={title}
                             onChange={(event) => setTitle(event.target.value)}
-                            placeholder="What should this petition ask for?"
+                            placeholder="What is this petition asking for?"
                             disabled={submitting}
                         />
                     </div>
@@ -299,13 +221,13 @@ export function PetitionCampaignModal({
                             className="input textarea mt-2"
                             value={description}
                             onChange={(event) => setDescription(event.target.value)}
-                            placeholder="Explain the demand, why it matters, and what signatures should achieve."
+                            placeholder="Explain the demand, why it matters, and what these signatures should help achieve."
                             disabled={submitting}
                         />
                     </div>
 
                     <div>
-                        <label className="label" htmlFor="petition-target">Target signatures</label>
+                        <label className="label" htmlFor="petition-target">Signature goal</label>
                         <input
                             id="petition-target"
                             type="number"
@@ -372,7 +294,7 @@ export function PetitionCampaignModal({
                             authorityEmail,
                         })}
                     >
-                        {submitting ? 'Starting...' : 'Start petition'}
+                        {submitting ? 'Creating...' : 'Create petition'}
                     </button>
                 </div>
             </div>
@@ -507,9 +429,9 @@ export function IconEditorModal({
             >
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <h3 className="text-lg font-semibold text-text-primary">Edit Group Icon</h3>
+                        <h3 className="text-lg font-semibold text-text-primary">Edit group icon</h3>
                         <p className="mt-1 text-sm text-text-secondary">
-                            Upload your own image, paste an image URL, or generate/paste SVG code.
+                            Upload an image, paste an image URL, or paste SVG code.
                         </p>
                     </div>
                     <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
@@ -518,7 +440,7 @@ export function IconEditorModal({
                 </div>
 
                 <div className="mt-4 rounded-lg border border-border-primary bg-bg-tertiary/40 p-3">
-                    <p className="text-xs text-text-muted mb-2">Use your own icon image (preferred)</p>
+                    <p className="text-xs text-text-muted mb-2">Upload an image (recommended)</p>
                     <input
                         type="file"
                         accept="image/*"
@@ -526,7 +448,7 @@ export function IconEditorModal({
                         onChange={(e) => onUploadIconImage(e.target.files?.[0] || null)}
                         disabled={iconImageUploading || savingIcon}
                     />
-                    <p className="text-xs text-text-muted mt-2">or paste image URL</p>
+                    <p className="text-xs text-text-muted mt-2">Or paste an image URL</p>
                     <input
                         type="url"
                         className="input mt-1"
@@ -538,7 +460,7 @@ export function IconEditorModal({
                 </div>
 
                 <div className="mt-4 rounded-lg border border-border-primary bg-bg-tertiary/40 p-3">
-                    <p className="text-xs text-text-muted mb-2">Suggested prompt</p>
+                    <p className="text-xs text-text-muted mb-2">Prompt for an image tool</p>
                     <pre className="whitespace-pre-wrap text-xs text-text-secondary">{iconPromptText}</pre>
                     <button
                         type="button"
@@ -564,7 +486,7 @@ export function IconEditorModal({
                         onChange={(e) => onIconSvgDraftChange(e.target.value)}
                         placeholder="<svg ...>...</svg>"
                     />
-                    <p className="mt-2 text-xs text-text-muted">SVG is used as fallback if image URL is empty.</p>
+                    <p className="mt-2 text-xs text-text-muted">SVG will be used if no image is set.</p>
                 </div>
 
                 <div className="mt-4">

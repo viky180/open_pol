@@ -77,24 +77,24 @@ export function TrustSelectionScreen({
             <div className="mb-6">
                 <h2 className="text-xl font-semibold text-text-primary mb-2">Choose who speaks for you</h2>
                 <p className="text-sm text-text-secondary">
-                    Select a member to speak on your behalf in <span className="font-medium">{partyName}</span>.
+                    Pick one member from <span className="font-medium">{partyName}</span> to speak for you.
                 </p>
             </div>
 
             <div className="rounded-xl border border-border-primary bg-bg-tertiary p-4 mb-6">
                 <div className="flex flex-col gap-3">
                     <div className="flex items-start gap-3">
-                        <span className="text-lg mt-0.5">Back</span>
+                        <span className="text-lg mt-0.5">Change</span>
                         <div>
-                            <div className="text-sm font-medium text-text-primary">You can leave anytime</div>
-                            <div className="text-xs text-text-muted">Your choice is always reversible.</div>
+                            <div className="text-sm font-medium text-text-primary">You can change this any time</div>
+                            <div className="text-xs text-text-muted">Your choice is never permanent.</div>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">
-                        <span className="text-lg mt-0.5">Time</span>
+                        <span className="text-lg mt-0.5">Reminder</span>
                         <div>
-                            <div className="text-sm font-medium text-text-primary">Support stays active</div>
-                            <div className="text-xs text-text-muted">We&apos;ll ask you to confirm it again in 6 months.</div>
+                            <div className="text-sm font-medium text-text-primary">It lasts for 6 months</div>
+                            <div className="text-xs text-text-muted">We&apos;ll ask you to confirm it again after that.</div>
                         </div>
                     </div>
                 </div>
@@ -105,7 +105,7 @@ export function TrustSelectionScreen({
 
                 {sortedMembers.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border-primary bg-bg-secondary p-6 text-center">
-                        <p className="text-sm text-text-muted">No other members to trust yet.</p>
+                        <p className="text-sm text-text-muted">No one else is available to choose yet.</p>
                     </div>
                 ) : (
                     <div className="flex flex-col gap-2">
@@ -140,12 +140,12 @@ export function TrustSelectionScreen({
                                             </span>
                                             {member.is_leader && (
                                                 <span className="text-[10px] uppercase tracking-wide text-primary">
-                                                    Current voice
+                                                    Current leader
                                                 </span>
                                             )}
                                         </div>
                                         <div className="text-xs text-text-muted">
-                                            {member.trust_votes} choice{member.trust_votes !== 1 ? 's' : ''}
+                                            {member.trust_votes} trust vote{member.trust_votes !== 1 ? 's' : ''}
                                         </div>
                                     </div>
 
@@ -154,7 +154,7 @@ export function TrustSelectionScreen({
                                         onClick={(event) => event.stopPropagation()}
                                         className="text-xs text-text-muted hover:text-primary transition-colors"
                                     >
-                                        View profile -&gt;
+                                        View profile
                                     </Link>
                                 </label>
                             );
@@ -165,10 +165,10 @@ export function TrustSelectionScreen({
 
             {selectedMember && (
                 <div className="mb-8">
-                    <div className="text-xs uppercase tracking-[0.15em] text-text-muted mb-3">Support status</div>
+                    <div className="text-xs uppercase tracking-[0.15em] text-text-muted mb-3">Your current choice</div>
                     <p className="text-sm text-text-secondary">
-                        Your support for <span className="font-medium text-text-primary">{selectedMemberName}</span> is active.
-                        You&apos;ll be asked to confirm it in 6 months.
+                        You currently back <span className="font-medium text-text-primary">{selectedMemberName}</span>.
+                        We&apos;ll ask you to confirm that again in 6 months.
                     </p>
                 </div>
             )}
@@ -179,7 +179,7 @@ export function TrustSelectionScreen({
                     disabled={!selectedMember || loading || !hasChanged}
                     className="btn btn-primary btn-lg w-full"
                 >
-                    {loading ? 'Saving...' : 'Confirm choice'}
+                    {loading ? 'Saving...' : 'Save choice'}
                 </button>
 
                 {onClose && (
@@ -193,7 +193,7 @@ export function TrustSelectionScreen({
 
                 {votedFor && (
                     <p className="text-xs text-text-muted text-center mt-2">
-                        You can change your choice at any time from the group page.
+                        You can change this any time from the group page.
                     </p>
                 )}
             </div>

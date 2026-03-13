@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -12,14 +12,13 @@ import { usePartyMembership } from './hooks/usePartyMembership';
 import { usePartyIcon } from './hooks/usePartyIcon';
 import {
     AuthModal,
-    JoinGroupSelectionModal,
     IconPreviewModal,
     IconEditorModal,
     LeaveModal,
     PetitionCampaignModal,
     type PetitionCampaignDraft,
 } from './components/PartyModals';
-import { getProgressHint, getProgressTarget } from './components/PartyDetailShared';
+import { getProgressHint, getProgressTarget, InfoTooltip } from './components/PartyDetailShared';
 import { GroupIconBadge } from './components/PartyPrimitives';
 import {
     AboutTabPanel,
@@ -31,9 +30,8 @@ import {
     PetitionsTabPanel,
     RecentActivityPanel,
 } from './components/PartyDetailClientSections';
-import { LeaderSection } from '@/components/LeaderSection';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Types
 
 interface PartyDetailClientProps {
     party: Party;
@@ -61,26 +59,12 @@ interface PartyDetailClientProps {
     siblingGroups: Array<{ id: string; issue_text: string; icon_svg?: string | null; icon_image_url?: string | null; memberCount: number }>;
     currentAlliance: { id: string; name: string; combinedMemberCount: number; leaderName: string | null } | null;
     canEditPartyIcon: boolean;
-    levelNavigationTargets: Array<{
-        id: string;
-        issue_text: string;
-        location_scope: string;
-        is_current: boolean;
-    }>;
     initialLikeCount: number;
     initialLikedByMe: boolean;
     weeklyMemberDelta: number;
     trendingPercent: number;
     rankInScope: number;
     isLeadingInScope: boolean;
-    voicePath: Array<{
-        id: string;
-        issue_text: string;
-        location_scope: string;
-        total_members: number;
-        is_current: boolean;
-        is_leading: boolean;
-    }>;
     groupLeaderMeta: {
         leaderId: string | null;
         leaderName: string | null;
@@ -132,7 +116,121 @@ const AUTO_PROVISION_SCOPE_LABEL: Record<AutoProvisionScope, string> = {
     village: 'Village',
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
+const MENU_ITEM_CLS = 'block px-3 py-2.5 text-sm hover:bg-bg-secondary';
+
+interface LeaderSummaryRowProps {
+    displayName: string;
+    avatarSeed?: string | null;
+    subtitle: ReactNode;
+    avatarToneClassName?: string;
+    aside?: ReactNode;
+}
+
+function LeaderSummaryRow({
+    displayName,
+    avatarSeed,
+    subtitle,
+    avatarToneClassName = 'bg-primary',
+    aside = null,
+}: LeaderSummaryRowProps) {
+    return (
+        <div className="mt-2 flex items-center gap-3 rounded-2xl border border-border-primary bg-bg-secondary/70 p-3">
+            <div className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-[var(--iux-ochre2)] ${avatarToneClassName}`}>
+                {(avatarSeed || displayName || 'L').charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="font-semibold text-text-primary">{displayName}</p>
+                <p className="text-xs text-text-muted">{subtitle}</p>
+            </div>
+            {aside}
+        </div>
+    );
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+
+function trustVoteLabel(count: number): string {
+    return `${count} trust vote${count !== 1 ? 's' : ''}`;
+}
+
+async function shareWithFallback(
+    payload: { title: string; text: string; url: string },
+    clipboardText: string,
+    successMessage: string,
+    onSuccess: (msg: string) => void,
+    onError: (msg: string) => void,
+): Promise<void> {
+    if (navigator.share) {
+        try {
+            await navigator.share(payload);
+            return;
+        } catch { /* fall through to clipboard */ }
+    }
+    try {
+        await navigator.clipboard.writeText(clipboardText);
+        onSuccess(successMessage);
+    } catch {
+        onError('Could not copy link.');
+    }
+}
+
+// ── Internal UI primitives ─────────────────────────────────────────────────
+
+interface SectionHeaderProps {
+    kicker: string;
+    heading?: ReactNode;
+    description?: ReactNode;
+    tooltip?: ReactNode;
+}
+
+function SectionHeader({ kicker, heading, description, tooltip }: SectionHeaderProps) {
+    return (
+        <>
+            <div className="flex items-start gap-2">
+                <p className="issue-section-kicker">{kicker}</p>
+                {tooltip && (
+                    <InfoTooltip
+                        content={tooltip}
+                        label={`More information about ${typeof heading === 'string' ? heading : kicker}`}
+                        className="mt-0.5 shrink-0"
+                    />
+                )}
+            </div>
+            {heading && (
+                <h2 className="mt-2 text-2xl text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>
+                    {heading}
+                </h2>
+            )}
+            {description && (
+                <p className="mt-2 text-sm leading-6 text-text-secondary">{description}</p>
+            )}
+        </>
+    );
+}
+
+interface StatCardProps {
+    label: string;
+    children: ReactNode;
+}
+
+function StatCard({ label, children }: StatCardProps) {
+    return (
+        <div className="rounded-2xl border border-border-primary bg-bg-secondary/70 px-3 py-3">
+            <p className="issue-section-kicker">{label}</p>
+            <div className="mt-2">{children}</div>
+        </div>
+    );
+}
+
+function NoLeaderCard({ children, className }: { children: ReactNode; className?: string }) {
+    return (
+        <div className={`rounded-2xl border border-border-primary bg-bg-secondary/70 p-3 text-sm text-text-secondary ${className ?? ''}`}>
+            {children}
+        </div>
+    );
+}
+
+// Component
 
 export function PartyDetailClient(props: PartyDetailClientProps) {
     return <PartyDetailClientInner key={props.party.id} {...props} />;
@@ -151,14 +249,12 @@ function PartyDetailClientInner({
     siblingGroups,
     currentAlliance,
     canEditPartyIcon,
-    levelNavigationTargets,
     initialLikeCount,
     initialLikedByMe,
     weeklyMemberDelta,
     trendingPercent,
     rankInScope,
     isLeadingInScope,
-    voicePath,
     groupLeaderMeta,
     levelLeaderMeta,
     activityItems,
@@ -184,9 +280,9 @@ function PartyDetailClientInner({
     const showStatusMessage = (tone: StatusTone, text: string) => setStatusMessage({ tone, text });
     const handleRefresh = () => router.refresh();
 
-    // ── Hooks ─────────────────────────────────────────────────────────────────
+    // Hooks
 
-    const singleMembershipHint = 'You can join one group per level. Saving a group lets you revisit it later without becoming a member.';
+    const singleMembershipHint = 'You can join one group at each level. You can still save a group to come back to it later.';
 
     const {
         joinLoading,
@@ -196,24 +292,14 @@ function PartyDetailClientInner({
         setShowAuthModal,
         showLeaveModal,
         setShowLeaveModal,
-        showJoinSelectionModal,
-        setShowJoinSelectionModal,
-        joinOptions,
         handleJoin,
-        handleJoinSelection,
         handleLeave,
     } = usePartyMembership({
         partyId: party.id,
-        partyIssueText: party.issue_text,
-        partyIconSvg: party.icon_svg || null,
-        partyIconImageUrl: party.icon_image_url || null,
-        partyMemberCount: memberCountLive,
         currentUserId,
         isMember,
         activeMembershipPartyId,
         memberSince,
-        siblingGroups,
-        childGroups: childGroups,
         singleMembershipHint,
         onStatusMessage: showStatusMessage,
     });
@@ -243,55 +329,11 @@ function PartyDetailClientInner({
         onRefresh: handleRefresh,
     });
 
-    // ── Derived data ──────────────────────────────────────────────────────────
+    // Derived data
     const locationScope = getLocationScopeConfig(party.location_scope || 'district');
     const growthTarget = getProgressTarget(memberCountLive);
     const growthHint = getProgressHint(memberCountLive);
     const growthProgress = Math.min(100, Math.round((memberCountLive / growthTarget) * 100));
-
-    const [selectedJumpScope, setSelectedJumpScope] = useState<string | null>(null);
-
-    const scopeTargetsMap = useMemo(() => {
-        const map = new Map<string, Array<{ id: string; issue_text: string; is_current: boolean }>>();
-
-        for (const target of levelNavigationTargets) {
-            const targetsForScope = map.get(target.location_scope) || [];
-            targetsForScope.push({
-                id: target.id,
-                issue_text: target.issue_text,
-                is_current: target.is_current,
-            });
-            map.set(target.location_scope, targetsForScope);
-        }
-
-        for (const [scope, targets] of map.entries()) {
-            map.set(
-                scope,
-                [...targets].sort((a, b) => {
-                    if (a.is_current && !b.is_current) return -1;
-                    if (!a.is_current && b.is_current) return 1;
-                    return a.issue_text.localeCompare(b.issue_text);
-                })
-            );
-        }
-
-        return map;
-    }, [levelNavigationTargets]);
-
-    const jumpChips = [
-        { scope: 'state', label: 'State' },
-        { scope: 'district', label: 'District/City' },
-        { scope: 'block', label: 'Block/Corporation' },
-        { scope: 'panchayat', label: 'Panchayat/Ward' },
-        { scope: 'village', label: 'Village/Locality' },
-    ] as const;
-
-    const testimonials = useMemo(() => {
-        return activityItems
-            .filter((item) => item.type === 'question' || item.type === 'post')
-            .slice(0, 3)
-            .map((item) => `“${item.preview.slice(0, 120)}${item.preview.length > 120 ? '…' : ''}”`);
-    }, [activityItems]);
 
     const dynamicLevelBadge = useMemo(() => {
         if ((party.location_scope || 'district') === 'state' && party.state_name) {
@@ -300,20 +342,16 @@ function PartyDetailClientInner({
         return `${locationScope.label} Level`;
     }, [party.location_scope, party.state_name, locationScope.label]);
 
-    const joinedStatusLine = optimisticIsMember
-        ? 'You are a member of this group'
-        : likedByMe
-            ? 'Saved so you can revisit it later'
-            : 'Not a member yet';
     const isFoundingNationalGroup = party.location_scope === 'national' && !!party.is_founding_group;
     const foundingElectionMemberThreshold = 50;
     const foundingElectionLocked = isFoundingNationalGroup && memberCountLive < foundingElectionMemberThreshold;
     const locationLabel = getPartyLocationLabel(party);
     const groupSummary = isFoundingNationalGroup
-        ? `This founding group gives ${party.issue_text === 'Founding group' ? 'this issue' : party.issue_text} a neutral national home while competing national groups emerge.`
+        ? 'This national group helps people organize around this issue until more national groups are formed.'
         : currentParentParty
             ? `This ${locationScope.label.toLowerCase()} group builds support for ${currentParentParty.issue_text}${locationLabel ? ` in ${locationLabel}` : ''}.`
-            : `This ${locationScope.label.toLowerCase()} group gathers support around one clear public demand${locationLabel ? ` in ${locationLabel}` : ''}.`;
+            : `This ${locationScope.label.toLowerCase()} group brings people together around one clear public demand${locationLabel ? ` in ${locationLabel}` : ''}.`;
+    const alternateGroupLabel = isFoundingNationalGroup ? 'Start another national group' : 'Start another group';
 
     const createForkHref = createPartyUrl({
         parent: currentParentParty?.id || null, fork_of: party.id, category: party.category_id || null,
@@ -329,7 +367,7 @@ function PartyDetailClientInner({
 
     const iconPromptText = `Create a clean, simple square SVG logo for this civic group name: "${party.issue_text}".\nRules:\n- Output only raw <svg>...</svg> code.\n- No scripts, no external images/fonts, no foreignObject.\n- Keep it minimal and readable at small sizes (24px/32px).\n- Use warm neutral colors and high contrast text/symbol.\n- Keep file small (under 20KB).`;
 
-    // ── Effects ───────────────────────────────────────────────────────────────
+    // Effects
 
     useEffect(() => {
         setMemberCountLive(memberCount);
@@ -446,24 +484,18 @@ function PartyDetailClientInner({
         };
     }, [showMoreMenu]);
 
-    // ── Share ─────────────────────────────────────────────────────────────────
+    // Share
 
     const shareUrl = buildPartyShareUrl(party.id);
     const handleShare = async () => {
-        if (navigator.share) {
-            try {
-                await navigator.share({ title: party.issue_text, text: `Join this issue group: ${party.issue_text}`, url: shareUrl });
-                await trackShareEvent({ platform: 'copy', partyId: party.id, source: 'party_detail_hero' });
-                return;
-            } catch { /* fall through */ }
-        }
-        try {
-            await navigator.clipboard.writeText(shareUrl);
-            await trackShareEvent({ platform: 'copy', partyId: party.id, source: 'party_detail_hero' });
-            showStatusMessage('success', 'Link copied.');
-        } catch {
-            showStatusMessage('error', 'Could not copy link.');
-        }
+        await shareWithFallback(
+            { title: party.issue_text, text: `Take a look at this group: ${party.issue_text}`, url: shareUrl },
+            shareUrl,
+            'Link copied.',
+            (msg) => showStatusMessage('success', msg),
+            (msg) => showStatusMessage('error', msg),
+        );
+        await trackShareEvent({ platform: 'copy', partyId: party.id, source: 'party_detail_hero' });
     };
 
     const handleLikeToggle = async () => {
@@ -499,44 +531,31 @@ function PartyDetailClientInner({
         }
     };
 
-    const handleJoinClick = () => {
-        void handleJoin().finally(() => {
-            void refreshLiveCounts();
-        });
+    const withRefresh = (fn: () => Promise<void>) => (): void => {
+        void fn().finally(() => { void refreshLiveCounts(); });
     };
 
-    const handleLeaveClick = () => {
-        void handleLeave().finally(() => {
-            void refreshLiveCounts();
-        });
-    };
+    const handleJoinClick = withRefresh(handleJoin);
+    const handleLeaveClick = withRefresh(handleLeave);
 
     const handleInviteFriends = async () => {
         const message = `Join ${party.issue_text} on Open Politics: ${shareUrl}`;
-        if (navigator.share) {
-            try {
-                await navigator.share({ title: party.issue_text, text: message, url: shareUrl });
-                return;
-            } catch {
-                // fallback below
-            }
-        }
-
-        try {
-            await navigator.clipboard.writeText(message);
-            showStatusMessage('success', 'Invite message copied. Share it with friends.');
-        } catch {
-            showStatusMessage('error', 'Could not prepare invite.');
-        }
+        await shareWithFallback(
+            { title: party.issue_text, text: message, url: shareUrl },
+            message,
+            'Invite message copied.',
+            (msg) => showStatusMessage('success', msg),
+            (msg) => showStatusMessage('error', msg),
+        );
     };
 
     const handleAddToHome = () => {
-        showStatusMessage('info', 'Use your browser menu and choose "Add to Home screen" to install Open Politics.');
+        showStatusMessage('info', 'Use your browser menu, then choose "Add to Home screen" to install Open Politics.');
         setShowMoreMenu(false);
     };
 
     const handleReport = () => {
-        showStatusMessage('info', 'Report submitted. Our moderation team will review this group.');
+        showStatusMessage('info', 'Thanks. Our moderation team will review this group.');
         setShowMoreMenu(false);
     };
 
@@ -549,7 +568,7 @@ function PartyDetailClientInner({
 
     const handleCreatePetition = async (draft: PetitionCampaignDraft) => {
         if (!draft.title.trim() || !draft.description.trim() || !draft.endsAt || draft.targetSignatures < 1) {
-            showStatusMessage('error', 'Add a title, description, signature target, and end date.');
+            showStatusMessage('error', 'Add a title, description, signature goal, and end date.');
             return;
         }
 
@@ -570,51 +589,31 @@ function PartyDetailClientInner({
 
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(payload?.error || 'Could not start petition');
+                throw new Error(payload?.error || 'Could not create the petition');
             }
 
             setShowPetitionModal(false);
             setActiveTab('petitions');
-            showStatusMessage('success', 'Petition campaign started.');
+            showStatusMessage('success', 'Petition created.');
             router.refresh();
         } catch (error) {
-            showStatusMessage('error', error instanceof Error ? error.message : 'Could not start petition');
+            showStatusMessage('error', error instanceof Error ? error.message : 'Could not create the petition');
         } finally {
             setPetitionSubmitting(false);
         }
     };
 
-    const handleSeeMembers = () => {
-        setShowPeopleNames(true);
-        setActiveTab('people');
+    const openTab = (tab: PartyDetailTabId) => {
+        setActiveTab(tab);
         requestAnimationFrame(() => {
             document.getElementById('party-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     };
 
-    const handleJumpToScope = (scope: string) => {
-        const targets = scopeTargetsMap.get(scope) || [];
-
-        if (targets.length === 0) {
-            setSelectedJumpScope(null);
-            return;
-        }
-
-        if (targets.length === 1) {
-            const [target] = targets;
-            if (target.id !== party.id) {
-                router.push(`/party/${target.id}`);
-            }
-            setSelectedJumpScope(null);
-            return;
-        }
-
-        setSelectedJumpScope((prev) => (prev === scope ? null : scope));
+    const handleSeeMembers = () => {
+        setShowPeopleNames(true);
+        openTab('people');
     };
-
-    const jumpChooserTargets = selectedJumpScope
-        ? (scopeTargetsMap.get(selectedJumpScope) || [])
-        : [];
 
     const peopleRows = useMemo(() => {
         return [...members]
@@ -623,7 +622,7 @@ function PartyDetailClientInner({
                 key: member.user_id,
                 display: showPeopleNames
                     ? (member.display_name || `Member ${index + 1}`)
-                    : `Anonymous Member ${index + 1}`,
+                    : `Member ${index + 1}`,
                 trust: member.trust_votes,
                 joined: new Date(member.joined_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
             }));
@@ -631,7 +630,7 @@ function PartyDetailClientInner({
 
     const recentActivityTeaser = activityItems.slice(0, 3);
 
-    // ── Render ────────────────────────────────────────────────────────────────
+    // Render
 
     return (
         <div className="issue-shell" style={{ maxWidth: '1080px' }}>
@@ -654,9 +653,9 @@ function PartyDetailClientInner({
 
             {autoProvisionNotice && (
                 <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-text-primary">
-                    <p className="font-semibold text-accent">Local path ready for this issue</p>
+                    <p className="font-semibold text-accent">Your local path is ready</p>
                     <p className="mt-1 text-text-secondary">
-                        We auto-created or found your local chain. Open the next level directly:
+                        We found or created the next local groups for this issue:
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                         {[...autoProvisionNotice.created, ...autoProvisionNotice.reused].map((item) => (
@@ -698,7 +697,7 @@ function PartyDetailClientInner({
                                 className="issue-hero-button"
                                 aria-label="Go back"
                             >
-                                ←
+                                {'\u2190'}
                             </button>
                             <div className="issue-meta-chip">Open Politics</div>
                         </div>
@@ -711,7 +710,7 @@ function PartyDetailClientInner({
                                 className="issue-hero-button"
                                 aria-label="Share"
                             >
-                                ↗
+                                {'\u2197'}
                             </button>
                             <div className="relative" ref={moreMenuRef}>
                                 <button
@@ -720,23 +719,23 @@ function PartyDetailClientInner({
                                     className="issue-hero-button"
                                     aria-label="More options"
                                 >
-                                    ⋮
+                                    {'\u22EE'}
                                 </button>
                                 {showMoreMenu && (
                                     <div className="absolute right-0 top-12 z-20 w-48 overflow-hidden rounded-2xl border border-border-primary bg-bg-primary text-text-primary shadow-xl">
                                         {party.location_scope !== 'village' && (
-                                            <Link href={createChildHref} className="block px-3 py-2.5 text-sm hover:bg-bg-secondary" onClick={() => setShowMoreMenu(false)}>
+                                            <Link href={createChildHref} className={MENU_ITEM_CLS} onClick={() => setShowMoreMenu(false)}>
                                                 Start local chapter
                                             </Link>
                                         )}
-                                        <Link href={createForkHref} className="block px-3 py-2.5 text-sm hover:bg-bg-secondary" onClick={() => setShowMoreMenu(false)}>
-                                            {isFoundingNationalGroup ? 'Start alternative national group' : 'Create alternative group'}
+                                        <Link href={createForkHref} className={MENU_ITEM_CLS} onClick={() => setShowMoreMenu(false)}>
+                                            {alternateGroupLabel}
                                         </Link>
-                                        <button type="button" onClick={handleReport} className="block w-full px-3 py-2.5 text-left text-sm hover:bg-bg-secondary">
-                                            Report
+                                        <button type="button" onClick={handleReport} className={`w-full text-left ${MENU_ITEM_CLS}`}>
+                                            Report group
                                         </button>
-                                        <button type="button" onClick={handleAddToHome} className="block w-full px-3 py-2.5 text-left text-sm hover:bg-bg-secondary">
-                                            Add to Home
+                                        <button type="button" onClick={handleAddToHome} className={`w-full text-left ${MENU_ITEM_CLS}`}>
+                                            Add to home screen
                                         </button>
                                     </div>
                                 )}
@@ -750,7 +749,7 @@ function PartyDetailClientInner({
                             className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold text-[var(--iux-ochre2)] transition hover:bg-white/20"
                         >
                             <span>Issue</span>
-                            <span>→</span>
+                            <span>{'\u2192'}</span>
                         </Link>
                     )}
 
@@ -768,40 +767,45 @@ function PartyDetailClientInner({
                             <p className="text-[11px] uppercase tracking-[0.22em] text-white/50" style={{ fontFamily: 'var(--font-mono)' }}>
                                 {locationScope.label} Group
                             </p>
-                            <h1 className="mt-2 text-3xl leading-tight text-white sm:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>
-                                {party.issue_text}
-                            </h1>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <h1 className="text-3xl leading-tight text-white sm:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>
+                                    {party.issue_text}
+                                </h1>
+                                {isFoundingNationalGroup && (
+                                    <InfoTooltip
+                                        content="This national group helps people organize around this issue until more national groups are formed."
+                                        label="Founding group information"
+                                        className="shrink-0"
+                                    />
+                                )}
+                            </div>
                             <p className="mt-2 text-sm leading-6 text-white/70">
                                 {locationLabel || `${locationScope.label} group`}
                             </p>
-                            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/78">
-                                {groupSummary}
-                            </p>
+                            {!isFoundingNationalGroup && (
+                                <p className="mt-3 max-w-2xl text-sm leading-6 text-white/78">
+                                    {groupSummary}
+                                </p>
+                            )}
                             <div className="mt-3 flex flex-wrap gap-2">
-                                <span className="issue-meta-chip">{joinedStatusLine}</span>
                                 {isFoundingNationalGroup && <span className="issue-meta-chip">Founding group</span>}
                                 {trendingPercent > 0 && <span className="issue-meta-chip">Trending +{trendingPercent}%</span>}
                                 {isLeadingInScope && <span className="issue-meta-chip">Leading in {locationScope.label}</span>}
                                 {canEditPartyIcon && (
                                     <button type="button" onClick={() => setShowIconEditorModal(true)} className="issue-meta-chip">
-                                        Edit Icon
+                                        Edit icon
                                     </button>
                                 )}
                             </div>
                             <div className="mt-4 flex flex-wrap gap-2">
                                 {optimisticIsMember ? (
                                     <>
-                                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowLeaveModal(true)} disabled={joinLoading}>
-                                            {joinLoading ? 'Leaving...' : 'Leave group'}
+                                        <button type="button" className="btn btn-secondary btn-sm" disabled>
+                                            Joined
                                         </button>
                                         <button type="button" className="btn btn-primary btn-sm" onClick={handleInviteFriends}>
-                                            Invite people
+                                            Invite others
                                         </button>
-                                        {isFoundingNationalGroup && (
-                                            <Link href={createForkHref} className="btn btn-secondary btn-sm">
-                                                Start alternative national group
-                                            </Link>
-                                        )}
                                     </>
                                 ) : (
                                     <>
@@ -809,34 +813,12 @@ function PartyDetailClientInner({
                                             {joinLoading ? 'Joining...' : 'Join group'}
                                         </button>
                                         <button type="button" className="btn btn-secondary btn-sm" onClick={handleLikeToggle} disabled={likeLoading}>
-                                            {likeLoading ? 'Saving...' : likedByMe ? 'Saved' : 'Save group'}
+                                            {likeLoading ? 'Saving...' : likedByMe ? 'Saved' : 'Save'}
                                         </button>
-                                        {isFoundingNationalGroup && (
-                                            <Link href={createForkHref} className="btn btn-secondary btn-sm">
-                                                Start alternative national group
-                                            </Link>
-                                        )}
                                     </>
                                 )}
-                                <button
-                                    type="button"
-                                    className="btn btn-ghost btn-sm text-white hover:bg-white/10 hover:text-white"
-                                    onClick={() => {
-                                        setActiveTab('about');
-                                        requestAnimationFrame(() => {
-                                            document.getElementById('party-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                        });
-                                    }}
-                                >
-                                    How it works
-                                </button>
                             </div>
                             <p className="mt-3 text-xs leading-6 text-white/60">{singleMembershipHint}</p>
-                            {foundingElectionLocked && (
-                                <p className="mt-2 text-xs leading-6 text-[var(--iux-ochre2)]">
-                                    Leadership stays open in the founding group until {foundingElectionMemberThreshold} members join. Current progress: {memberCountLive}/{foundingElectionMemberThreshold}.
-                                </p>
-                            )}
                         </div>
                     </div>
 
@@ -866,212 +848,80 @@ function PartyDetailClientInner({
             {activeTab === 'about' && (
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)] lg:items-start">
                     <div className="space-y-4">
-                        <section className="issue-card issue-card--soft">
-                            <p className="issue-section-kicker">Compare nearby levels</p>
-                            <h2 className="mt-2 text-2xl text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>
-                                Explore the same issue at other levels
-                            </h2>
-                            <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2">
-                                {jumpChips.map((chip) => {
-                                    const targets = scopeTargetsMap.get(chip.scope) || [];
-                                    const hasTargets = targets.length > 0;
-                                    const hasMultipleTargets = targets.length > 1;
-                                    const isActive = (party.location_scope || 'district') === chip.scope;
-                                    const isCurrentOnlyTarget = targets.length === 1 && targets[0].id === party.id;
-                                    return (
-                                        <button
-                                            key={chip.scope}
-                                            type="button"
-                                            onClick={() => handleJumpToScope(chip.scope)}
-                                            disabled={!hasTargets || isCurrentOnlyTarget}
-                                            className={`relative shrink-0 rounded-full border px-4 py-2 text-xs font-medium transition ${isActive
-                                                ? 'border-primary bg-primary text-[var(--iux-ochre2)]'
-                                                : 'border-border-primary bg-bg-card text-text-secondary hover:bg-bg-tertiary'
-                                                } disabled:opacity-50`}
-                                        >
-                                            {chip.label}
-                                            {hasMultipleTargets ? ` (${targets.length})` : ''}
-                                            {isActive && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-orange-500" aria-hidden="true" />}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {selectedJumpScope && jumpChooserTargets.length > 1 && (
-                                <div className="mt-3 rounded-2xl border border-border-primary bg-bg-card p-3">
-                                    <div className="mb-2 flex items-center justify-between px-1">
-                                        <p className="text-xs font-semibold text-text-secondary">
-                                            Choose {getLocationScopeConfig(selectedJumpScope).label} group
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelectedJumpScope(null)}
-                                            className="rounded-md px-2 py-1 text-xs text-text-muted hover:bg-bg-primary hover:text-text-primary"
-                                        >
-                                            Close
-                                        </button>
-                                    </div>
-                                    <div className="space-y-1">
-                                        {jumpChooserTargets.map((target) => (
-                                            <button
-                                                key={target.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedJumpScope(null);
-                                                    if (!target.is_current) {
-                                                        router.push(`/party/${target.id}`);
-                                                    }
-                                                }}
-                                                className={`w-full rounded-xl px-3 py-2.5 text-left text-sm transition ${target.is_current
-                                                    ? 'border border-accent/40 bg-accent/10 text-accent'
-                                                    : 'text-text-primary hover:bg-bg-primary'
-                                                    }`}
-                                            >
-                                                <span className="line-clamp-2">{target.issue_text}</span>
-                                                {target.is_current && (
-                                                    <span className="mt-1 inline-block text-xs text-accent">Current group</span>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </section>
-
-                        <section className="issue-card">
-                            <p className="issue-section-kicker">Representation path</p>
-                            <h2 className="mt-2 text-2xl text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>
-                                How support from this group can travel upward
-                            </h2>
-                            <div className="mt-3 space-y-2">
-                                {voicePath.map((node, index) => (
-                                    <div key={node.id}>
-                                        <button
-                                            type="button"
-                                            onClick={() => node.id !== party.id && router.push(`/party/${node.id}`)}
-                                            className={`w-full rounded-2xl border px-3 py-3 text-left transition ${node.is_current
-                                                ? 'border-primary bg-primary text-[var(--iux-ochre2)]'
-                                                : 'border-border-primary bg-bg-secondary hover:bg-bg-tertiary'
-                                                }`}
-                                        >
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <div>
-                                                    <p className={`text-sm font-medium ${node.is_current ? 'text-[var(--iux-ochre2)]' : 'text-text-primary'}`}>{node.issue_text}</p>
-                                                    <p className={`text-xs ${node.is_current ? 'text-white/60' : 'text-text-muted'}`}>{node.total_members.toLocaleString('en-IN')} members</p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {node.is_current && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-[var(--iux-ochre2)]">Current group</span>}
-                                                    {node.is_leading && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Leading</span>}
-                                                </div>
-                                            </div>
-                                        </button>
-                                        {index < voicePath.length - 1 && (
-                                            <div className="mx-4 my-1 text-xs text-text-muted">Moves upward</div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-
                         <AboutTabPanel
                             party={party}
                             currentParentParty={currentParentParty}
-                            testimonials={testimonials}
                         />
                     </div>
 
                     <div className="space-y-4 lg:sticky lg:top-24">
 
-                        {/* ── Card 1: This group's own internal leader ── */}
+                        {/* Card 1: This group's own internal leader */}
                         <section className="issue-card">
-                            <p className="issue-section-kicker">This group&apos;s leader</p>
-                            <h2 className="mt-2 text-2xl text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>
-                                {foundingElectionLocked ? 'Leadership opens at 50 members' : 'Elected by members of this group'}
-                            </h2>
-                            <p className="mt-2 text-sm text-text-secondary leading-6">
-                                {foundingElectionLocked
-                                    ? `This founding group stays leaderless until ${foundingElectionMemberThreshold} members join. After that, members can trust-vote to elect a leader.`
-                                    : 'Members trust-vote to elect their own leader. Every group independently elects one this way.'}
-                            </p>
-                            <div className="mt-4">
-                                <LeaderSection
-                                    leader={members.find(m => m.user_id === groupLeaderMeta.leaderId) || null}
-                                    latestStatement={null}
-                                    locationScope={party.location_scope}
-                                    isWinningGroup={false}
-                                    isGroupLeaderCard={true}
-                                />
-                            </div>
+                            <SectionHeader
+                                kicker="Group leadership"
+                                heading={foundingElectionLocked ? 'Leadership starts at 50 members' : 'Chosen by members of this group'}
+                                tooltip={foundingElectionLocked
+                                    ? `This founding group has no leader until ${foundingElectionMemberThreshold} members join. After that, members can use trust votes to choose one.`
+                                    : 'Members use trust votes to choose one leader for this group. You can change your vote at any time.'}
+                            />
                             {groupLeaderMeta.leaderId ? (
-                                <div className="mt-2 flex items-center gap-3 rounded-2xl border border-border-primary bg-bg-secondary/70 p-3">
-                                    <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-[var(--iux-ochre2)]">
-                                        {(groupLeaderMeta.leaderName || 'L').charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-text-primary">{groupLeaderMeta.leaderName || 'Anonymous leader'}</p>
-                                        <p className="text-xs text-text-muted">
-                                            {groupLeaderMeta.electedBy} trust vote{groupLeaderMeta.electedBy !== 1 ? 's' : ''} from this group
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleSeeMembers}
-                                        className="btn btn-secondary btn-sm shrink-0"
-                                    >
-                                        Trust-vote
-                                    </button>
-                                </div>
+                                <LeaderSummaryRow
+                                    displayName={groupLeaderMeta.leaderName || 'Anonymous leader'}
+                                    avatarSeed={groupLeaderMeta.leaderName}
+                                    subtitle={`${trustVoteLabel(groupLeaderMeta.electedBy)} from this group`}
+                                    aside={(
+                                        <button
+                                            type="button"
+                                            onClick={handleSeeMembers}
+                                            className="btn btn-secondary btn-sm shrink-0"
+                                        >
+                                            Choose leader
+                                        </button>
+                                    )}
+                                />
                             ) : (
-                                <div className="mt-3 rounded-2xl border border-border-primary bg-bg-secondary/70 p-3 text-sm text-text-secondary">
+                                <NoLeaderCard className="mt-3">
                                     {foundingElectionLocked
-                                        ? `No leader yet. Election opens automatically once this founding group reaches ${foundingElectionMemberThreshold} members.`
+                                        ? `No leader yet. Voting starts automatically when this founding group reaches ${foundingElectionMemberThreshold} members.`
                                         : <>
                                             No trust votes yet. Be the first to back a member of this group.{' '}
                                             <button type="button" onClick={handleSeeMembers} className="underline text-accent">
-                                                See members
+                                                View members
                                             </button>
                                         </>}
-                                </div>
+                                </NoLeaderCard>
                             )}
                         </section>
 
-                        {/* ── Card 2: Level-wide leader (from the most-membership group) ── */}
+                        {/* Card 2: Level-wide leader (from the most-membership group) */}
                         <section className={`issue-card ${isLeadingInScope ? 'border-success/30 bg-success/5' : ''}`}>
-                            <p className="issue-section-kicker">{locationScope.label} level leader</p>
-                            <h2 className="mt-2 text-2xl text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>
-                                {isLeadingInScope
-                                    ? 'Your group leads this level'
-                                    : 'Who officially speaks for this level'}
-                            </h2>
-                            <p className="mt-2 text-sm text-text-secondary leading-6">
-                                {isLeadingInScope
-                                    ? `This group has the most members at the ${locationScope.label.toLowerCase()} level, so its leader officially represents this level.`
-                                    : `The group with the most members at this level provides the official representative. Grow membership to compete.`}
-                            </p>
+                            <SectionHeader
+                                kicker={`${locationScope.label} representative`}
+                                heading={isLeadingInScope ? 'This group speaks for this level' : 'Who speaks for this level'}
+                                tooltip={isLeadingInScope
+                                    ? `This group has the most members at the ${locationScope.label.toLowerCase()} level, so its leader speaks for this level.`
+                                    : 'At each level, the group with the most members provides the person who speaks for this level.'}
+                            />
                             <div className="mt-4">
                                 {levelLeaderMeta.leaderId ? (
-                                    <div className="flex items-center gap-3 rounded-2xl border border-border-primary bg-bg-secondary/70 p-3">
-                                        <div className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-[var(--iux-ochre2)] ${isLeadingInScope ? 'bg-success/20' : 'bg-primary'}`}>
-                                            {(levelLeaderMeta.leaderName || 'L').charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-text-primary">{levelLeaderMeta.leaderName || 'Anonymous'}</p>
-                                            <p className="text-xs text-text-muted">
-                                                {isLeadingInScope
-                                                    ? `${levelLeaderMeta.electedBy} trust vote${levelLeaderMeta.electedBy !== 1 ? 's' : ''} · from this group`
-                                                    : `From the leading group at this level`}
-                                            </p>
-                                        </div>
-                                        {isLeadingInScope && (
+                                    <LeaderSummaryRow
+                                        displayName={levelLeaderMeta.leaderName || 'Anonymous'}
+                                        avatarSeed={levelLeaderMeta.leaderName}
+                                        avatarToneClassName={isLeadingInScope ? 'bg-success/20' : 'bg-primary'}
+                                        subtitle={isLeadingInScope
+                                            ? `${trustVoteLabel(levelLeaderMeta.electedBy)} from this group`
+                                            : 'Chosen inside the largest group at this level'}
+                                        aside={isLeadingInScope ? (
                                             <span className="rounded-full border border-success/20 bg-success/10 px-2 py-1 text-[11px] font-medium text-success shrink-0">
                                                 Leading
                                             </span>
-                                        )}
-                                    </div>
+                                        ) : null}
+                                    />
                                 ) : (
-                                    <div className="rounded-2xl border border-border-primary bg-bg-secondary/70 p-3 text-sm text-text-secondary">
-                                        No level leader yet. The group that grows the most members here will provide the representative.
-                                    </div>
+                                    <NoLeaderCard>
+                                        No representative yet. Whichever group reaches the most members here will send one.
+                                    </NoLeaderCard>
                                 )}
                             </div>
                         </section>
@@ -1079,10 +929,10 @@ function PartyDetailClientInner({
                         <section className="issue-card">
                             <div className="flex items-baseline justify-between gap-2">
                                 <div>
-                                    <p className="issue-section-kicker">Progress</p>
-                                    <h2 className="mt-2 text-2xl text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>
-                                        Momentum toward the next milestone
-                                    </h2>
+                                    <SectionHeader
+                                        kicker="Progress"
+                                        heading="Progress to the next milestone"
+                                    />
                                 </div>
                                 <span className="text-xs text-text-muted">{memberCountLive} / {growthTarget} members</span>
                             </div>
@@ -1090,16 +940,14 @@ function PartyDetailClientInner({
                                 <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${growthProgress}%` }} />
                             </div>
                             <div className="mt-3 grid grid-cols-2 gap-3">
-                                <div className="rounded-2xl border border-border-primary bg-bg-secondary/70 px-3 py-3">
-                                    <p className="issue-section-kicker">This Week</p>
-                                    <p className={`mt-2 text-2xl ${weeklyMemberDelta >= 0 ? 'text-success' : 'text-danger'}`} style={{ fontFamily: 'var(--font-display)' }}>
+                                <StatCard label="This Week">
+                                    <p className={`text-2xl ${weeklyMemberDelta >= 0 ? 'text-success' : 'text-danger'}`} style={{ fontFamily: 'var(--font-display)' }}>
                                         {weeklyMemberDelta >= 0 ? '+' : ''}{weeklyMemberDelta}
                                     </p>
-                                </div>
-                                <div className="rounded-2xl border border-border-primary bg-bg-secondary/70 px-3 py-3">
-                                    <p className="issue-section-kicker">Next step</p>
-                                    <p className="mt-2 text-sm font-semibold text-text-primary">{growthHint}</p>
-                                </div>
+                                </StatCard>
+                                <StatCard label="Next step">
+                                    <p className="text-sm font-semibold text-text-primary">{growthHint}</p>
+                                </StatCard>
                             </div>
                         </section>
 
@@ -1136,14 +984,6 @@ function PartyDetailClientInner({
             {/* Modals */}
             {showAuthModal && <AuthModal partyId={party.id} onCancel={() => setShowAuthModal(false)} />}
 
-            {showJoinSelectionModal && (
-                <JoinGroupSelectionModal
-                    options={joinOptions}
-                    joinLoading={joinLoading}
-                    onSelect={handleJoinSelection}
-                    onCancel={() => setShowJoinSelectionModal(false)}
-                />
-            )}
 
             {showLeaveModal && (
                 <LeaveModal

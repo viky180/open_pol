@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+
 export function getProgressTarget(totalBackers: number): number {
     if (totalBackers < 10) return 10;
     if (totalBackers < 50) return 50;
@@ -8,10 +10,10 @@ export function getProgressTarget(totalBackers: number): number {
 }
 
 export function getProgressHint(totalBackers: number): string {
-    if (totalBackers < 10) return `${10 - totalBackers} more to reach 10`;
-    if (totalBackers < 50) return `${50 - totalBackers} more to reach 50`;
-    if (totalBackers < 100) return `${100 - totalBackers} more to reach 100`;
-    return 'Growing strong!';
+    if (totalBackers < 10) return `${10 - totalBackers} members needed to reach the first milestone`;
+    if (totalBackers < 50) return `${50 - totalBackers} more to reach 50 members`;
+    if (totalBackers < 100) return `${100 - totalBackers} more to reach 100 members`;
+    return '10 more to the next milestone';
 }
 
 export function formatCompactDate(value: string | null) {
@@ -21,6 +23,111 @@ export function formatCompactDate(value: string | null) {
         month: 'short',
         year: 'numeric',
     });
+}
+
+export function InfoTooltip({
+    content,
+    label = 'More information',
+    className,
+}: {
+    content: ReactNode;
+    label?: string;
+    align?: 'left' | 'right';
+    className?: string;
+}) {
+    const [open, setOpen] = useState(false);
+    const [coords, setCoords] = useState<{ top: number; left: number; right: number } | null>(null);
+    const tooltipId = useId();
+    const buttonRef = useRef<HTMLButtonElement | null>(null);
+    const wrapperRef = useRef<HTMLSpanElement | null>(null);
+    const TOOLTIP_WIDTH = 288; // w-72
+
+    const computeCoords = () => {
+        if (!buttonRef.current) return;
+        const rect = buttonRef.current.getBoundingClientRect();
+        // Prefer right-aligned; flip left if it would overflow the viewport
+        const rightEdge = rect.right;
+        const leftEdge = rightEdge - TOOLTIP_WIDTH;
+        const safeLeft = Math.max(8, leftEdge);
+        const top = rect.bottom + 8; // 8px gap below button
+        setCoords({ top, left: safeLeft, right: rightEdge });
+    };
+
+    const handleToggle = () => {
+        if (!open) {
+            computeCoords();
+        }
+        setOpen((current) => !current);
+    };
+
+    useEffect(() => {
+        if (!open) return;
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (!wrapperRef.current?.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setOpen(false);
+            }
+        };
+
+        const handleScroll = () => setOpen(false);
+
+        document.addEventListener('pointerdown', handlePointerDown);
+        document.addEventListener('keydown', handleEscape);
+        window.addEventListener('scroll', handleScroll, true);
+
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown);
+            document.removeEventListener('keydown', handleEscape);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [open]);
+
+    return (
+        <span
+            ref={wrapperRef}
+            className={`relative inline-flex ${className ?? ''}`}
+            onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setOpen(false);
+                }
+            }}
+        >
+            <button
+                ref={buttonRef}
+                type="button"
+                aria-label={label}
+                aria-describedby={open ? tooltipId : undefined}
+                aria-expanded={open}
+                onClick={handleToggle}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-primary bg-bg-card text-[11px] font-semibold text-text-muted transition hover:border-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            >
+                i
+            </button>
+            {open && coords && (
+                <span
+                    id={tooltipId}
+                    role="tooltip"
+                    style={{
+                        position: 'fixed',
+                        top: coords.top,
+                        left: coords.left,
+                        width: TOOLTIP_WIDTH,
+                        maxWidth: 'calc(100vw - 1rem)',
+                        zIndex: 9999,
+                    }}
+                    className="rounded-xl border border-border-primary bg-bg-card px-3 py-2 text-left text-xs leading-5 text-text-secondary shadow-xl"
+                >
+                    {content}
+                </span>
+            )}
+        </span>
+    );
 }
 
 export function SectionHeader({

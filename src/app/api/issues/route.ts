@@ -10,12 +10,18 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0', 10);
     const q = searchParams.get('q') || '';
     const categoryId = searchParams.get('category_id') || '';
+    const idsParam = searchParams.get('ids') || '';
+    const ids = idsParam ? idsParam.split(',').map(s => s.trim()).filter(Boolean) : [];
 
     let query = supabase
         .from('issues')
         .select('*, parties!issue_id(count)', { count: 'exact' })
         .range(offset, offset + limit - 1)
         .order('created_at', { ascending: false });
+
+    if (ids.length > 0) {
+        query = query.in('id', ids);
+    }
 
     if (q) {
         query = query.ilike('issue_text', `%${q}%`);

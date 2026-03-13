@@ -46,11 +46,11 @@ export function usePartyIcon({
             formData.append('file', file);
             const response = await fetch('/api/uploads/party-icon-image', { method: 'POST', body: formData });
             const payload = await response.json();
-            if (!response.ok) throw new Error(payload?.error || 'Could not upload icon image');
+            if (!response.ok) throw new Error(payload?.error || 'Could not upload the icon image');
             setIconImageUrlDraft(typeof payload?.url === 'string' ? payload.url : '');
-            onStatusMessage('success', 'Icon image uploaded. Save to apply.');
+            onStatusMessage('success', 'Image uploaded. Save to use it.');
         } catch (err) {
-            onStatusMessage('error', err instanceof Error ? err.message : 'Could not upload icon image');
+            onStatusMessage('error', err instanceof Error ? err.message : 'Could not upload the icon image');
         } finally {
             setIconImageUploading(false);
         }
@@ -69,7 +69,7 @@ export function usePartyIcon({
                 }),
             });
             const payload = await response.json();
-            if (!response.ok) throw new Error(payload?.error || 'Could not save group icon');
+            if (!response.ok) throw new Error(payload?.error || 'Could not save the group icon');
             const nextIcon = payload?.icon_svg ?? null;
             const nextIconImageUrl = payload?.icon_image_url ?? null;
             setPartyIconSvg(nextIcon);
@@ -77,10 +77,10 @@ export function usePartyIcon({
             setIconSvgDraft(nextIcon || '');
             setIconImageUrlDraft(nextIconImageUrl || '');
             setShowIconEditorModal(false);
-            onStatusMessage('success', nextIcon ? 'Group icon updated.' : 'Group icon reset to default.');
+            onStatusMessage('success', nextIcon ? 'Group icon updated.' : 'Group icon reset.');
             onRefresh();
         } catch (err) {
-            onStatusMessage('error', err instanceof Error ? err.message : 'Could not save group icon');
+            onStatusMessage('error', err instanceof Error ? err.message : 'Could not save the group icon');
         } finally {
             setSavingIcon(false);
         }

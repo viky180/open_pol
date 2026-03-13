@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 type MembershipStatusTone = 'success' | 'error' | 'info';
-type JoinOptionRelation = 'current' | 'sibling' | 'child';
 
 type AutoProvisionPayload = {
     created?: Array<{ scope: 'state' | 'district' | 'village'; party_id: string }>;
@@ -13,12 +12,17 @@ type AutoProvisionPayload = {
 } | null;
 
 const AUTO_PROVISION_NOTICE_STORAGE_KEY = 'openpolitics:auto-provision-notice';
+const AUTO_PROVISION_SCOPE_LABEL: Record<'state' | 'district' | 'village', string> = {
+    state: 'State',
+    district: 'District',
+    village: 'Village',
+};
 
 function buildLocalPathMessage(autoProvision: AutoProvisionPayload): string | null {
     if (!autoProvision) return null;
 
-    const createdScopes = (autoProvision.created || []).map((item) => item.scope);
-    const reusedScopes = (autoProvision.reused || []).map((item) => item.scope);
+    const createdScopes = (autoProvision.created || []).map((item) => AUTO_PROVISION_SCOPE_LABEL[item.scope]);
+    const reusedScopes = (autoProvision.reused || []).map((item) => AUTO_PROVISION_SCOPE_LABEL[item.scope]);
 
     if (createdScopes.length === 0 && reusedScopes.length === 0) {
         return null;
@@ -28,7 +32,7 @@ function buildLocalPathMessage(autoProvision: AutoProvisionPayload): string | nu
     const reusedText = reusedScopes.length > 0 ? `Ready: ${reusedScopes.join(', ')}` : null;
     const detail = [createdText, reusedText].filter(Boolean).join(' · ');
 
-    return `Local leadership path is ready. ${detail}`;
+    return `Your local path is ready. ${detail}`;
 }
 
 function persistAutoProvisionNotice(targetPartyId: string, autoProvision: AutoProvisionPayload) {
@@ -55,43 +59,22 @@ function persistAutoProvisionNotice(targetPartyId: string, autoProvision: AutoPr
     }
 }
 
-export interface JoinGroupOption {
-    id: string;
-    issue_text: string;
-    icon_svg?: string | null;
-    icon_image_url?: string | null;
-    memberCount: number;
-    relation: JoinOptionRelation;
-}
-
 interface UsePartyMembershipParams {
     partyId: string;
-    partyIssueText: string;
-    partyIconSvg?: string | null;
-    partyIconImageUrl?: string | null;
-    partyMemberCount: number;
     currentUserId: string | null;
     isMember: boolean;
     activeMembershipPartyId: string | null;
     memberSince: string | null;
-    siblingGroups: Array<{ id: string; issue_text: string; icon_svg?: string | null; icon_image_url?: string | null; memberCount: number }>;
-    childGroups: Array<{ id: string; issue_text: string; icon_svg?: string | null; icon_image_url?: string | null; memberCount: number }>;
     singleMembershipHint: string;
     onStatusMessage: (tone: MembershipStatusTone, text: string) => void;
 }
 
 export function usePartyMembership({
     partyId,
-    partyIssueText,
-    partyIconSvg,
-    partyIconImageUrl,
-    partyMemberCount,
     currentUserId,
     isMember,
     activeMembershipPartyId,
     memberSince,
-    siblingGroups,
-    childGroups,
     singleMembershipHint,
     onStatusMessage,
 }: UsePartyMembershipParams) {
@@ -102,7 +85,6 @@ export function usePartyMembership({
     const [optimisticMemberSince, setOptimisticMemberSince] = useState(memberSince);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
-    const [showJoinSelectionModal, setShowJoinSelectionModal] = useState(false);
 
     useEffect(() => {
         setOptimisticIsMember(isMember);
@@ -112,86 +94,34 @@ export function usePartyMembership({
 
     const hasMembershipElsewhere = !!optimisticActiveMembershipPartyId && optimisticActiveMembershipPartyId !== partyId;
     const joinDisabled = joinLoading || hasMembershipElsewhere;
-    const joinButtonLabel = hasMembershipElsewhere ? 'One group only' : (joinLoading ? 'Joining...' : 'Join this issue group');
+    const joinButtonLabel = hasMembershipElsewhere ? 'One group only' : (joinLoading ? 'Joining...' : 'Join this group');
 
-    const joinOptions = useMemo<JoinGroupOption[]>(() => {
-        const optionsMap = new Map<string, JoinGroupOption>();
-
-        optionsMap.set(partyId, {
-            id: partyId,
-            issue_text: partyIssueText,
-            icon_svg: partyIconSvg || null,
-            icon_image_url: partyIconImageUrl || null,
-            memberCount: partyMemberCount,
-            relation: 'current',
-        });
-
-        siblingGroups.forEach((sibling) => {
-            if (!optionsMap.has(sibling.id)) {
-                optionsMap.set(sibling.id, {
-                    id: sibling.id,
-                    issue_text: sibling.issue_text,
-                    icon_svg: sibling.icon_svg || null,
-                    icon_image_url: sibling.icon_image_url || null,
-                    memberCount: sibling.memberCount,
-                    relation: 'sibling',
-                });
-            }
-        });
-
-        childGroups.forEach((child) => {
-            if (!optionsMap.has(child.id)) {
-                optionsMap.set(child.id, {
-                    id: child.id,
-                    issue_text: child.issue_text,
-                    icon_svg: child.icon_svg || null,
-                    icon_image_url: child.icon_image_url || null,
-                    memberCount: child.memberCount,
-                    relation: 'child',
-                });
-            }
-        });
-
-        return Array.from(optionsMap.values());
-    }, [partyId, partyIssueText, partyIconSvg, partyIconImageUrl, partyMemberCount, siblingGroups, childGroups]);
-
-    const shouldPromptJoinChoice = !optimisticIsMember && (siblingGroups.length > 0 || childGroups.length > 0);
-
-    const performJoin = async (targetPartyId: string) => {
-        const isJoiningCurrentParty = targetPartyId === partyId;
-        const selectedOption = joinOptions.find((option) => option.id === targetPartyId) || null;
-
+    const performJoin = async () => {
         const previousMembershipState = {
             isMember: optimisticIsMember,
             activeMembershipPartyId: optimisticActiveMembershipPartyId,
             memberSince: optimisticMemberSince,
         };
 
-        if (isJoiningCurrentParty) {
-            setOptimisticIsMember(true);
-            setOptimisticActiveMembershipPartyId(partyId);
-            setOptimisticMemberSince(new Date().toISOString());
-        }
+        setOptimisticIsMember(true);
+        setOptimisticActiveMembershipPartyId(partyId);
+        setOptimisticMemberSince(new Date().toISOString());
 
         setJoinLoading(true);
         try {
-            const response = await fetch(`/api/parties/${targetPartyId}/join`, { method: 'POST' });
+            const response = await fetch(`/api/parties/${partyId}/join`, { method: 'POST' });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) {
-                throw new Error(payload?.error || 'Unable to join party');
+                throw new Error(payload?.error || 'Could not join this group');
             }
 
             const localPathMessage = buildLocalPathMessage(payload?.autoProvision || null);
-            persistAutoProvisionNotice(targetPartyId, payload?.autoProvision || null);
+            persistAutoProvisionNotice(partyId, payload?.autoProvision || null);
             if (localPathMessage && typeof window !== 'undefined') {
                 window.sessionStorage.setItem('openpolitics:join-notice', localPathMessage);
             }
 
-            if (!isJoiningCurrentParty) {
-                const selectedName = selectedOption?.issue_text || 'selected chapter';
-                onStatusMessage('success', `Joined ${selectedName}. Redirecting...`);
-                window.location.href = `/party/${targetPartyId}`;
-            } else if (localPathMessage) {
+            if (localPathMessage) {
                 onStatusMessage('success', localPathMessage);
             }
         } catch (err) {
@@ -199,7 +129,7 @@ export function usePartyMembership({
             setOptimisticIsMember(previousMembershipState.isMember);
             setOptimisticActiveMembershipPartyId(previousMembershipState.activeMembershipPartyId);
             setOptimisticMemberSince(previousMembershipState.memberSince);
-            onStatusMessage('error', err instanceof Error ? err.message : 'Unable to join party');
+            onStatusMessage('error', err instanceof Error ? err.message : 'Could not join this group');
         } finally {
             setJoinLoading(false);
         }
@@ -216,18 +146,7 @@ export function usePartyMembership({
             return;
         }
 
-        if (shouldPromptJoinChoice) {
-            setShowJoinSelectionModal(true);
-            return;
-        }
-
-        await performJoin(partyId);
-    };
-
-    const handleJoinSelection = async (targetPartyId: string) => {
-        if (joinLoading) return;
-        setShowJoinSelectionModal(false);
-        await performJoin(targetPartyId);
+        await performJoin();
     };
 
     const handleLeave = async () => {
@@ -266,7 +185,7 @@ export function usePartyMembership({
             setOptimisticIsMember(previousMembershipState.isMember);
             setOptimisticActiveMembershipPartyId(previousMembershipState.activeMembershipPartyId);
             setOptimisticMemberSince(previousMembershipState.memberSince);
-            onStatusMessage('error', 'Could not leave the group. Please try again.');
+            onStatusMessage('error', 'Could not leave this group. Please try again.');
         } finally {
             setJoinLoading(false);
         }
@@ -283,11 +202,7 @@ export function usePartyMembership({
         setShowAuthModal,
         showLeaveModal,
         setShowLeaveModal,
-        showJoinSelectionModal,
-        setShowJoinSelectionModal,
-        joinOptions,
         handleJoin,
-        handleJoinSelection,
         handleLeave,
     };
 }

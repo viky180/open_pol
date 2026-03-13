@@ -9,7 +9,6 @@ import type {
     QAMetrics,
     Party,
 } from '@/types/database';
-import { getLocationScopeRank } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,17 +20,6 @@ type AllianceSummary = {
     id: string;
     name: string;
     created_by?: string | null;
-};
-
-type HierarchyNodeForNavigation = {
-    id: string;
-    issue_text: string;
-    location_scope: string | null;
-    parent_party_id?: string | null;
-    total_member_count?: number | null;
-    aggregated_member_count?: number | null;
-    member_count?: number | null;
-    is_leading_coalition?: boolean | null;
 };
 
 type ActivityItem = {
@@ -354,89 +342,6 @@ export default async function PartyPage({ params }: Props) {
         };
     }
 
-    const { data: hierarchyRpcData } = await supabase.rpc('get_party_hierarchy_data', {
-        p_party_id: id,
-    });
-
-    const hierarchyNodes = ((hierarchyRpcData as { nodes?: HierarchyNodeForNavigation[] } | null)?.nodes || []);
-    const levelNavigationTargets = (() => {
-        const seen = new Set<string>();
-        const normalized = hierarchyNodes
-            .filter((node) => !!node?.id && !!node?.issue_text)
-            .filter((node) => {
-                if (seen.has(node.id)) return false;
-                seen.add(node.id);
-                return true;
-            })
-            .map((node) => ({
-                id: node.id,
-                issue_text: node.issue_text,
-                location_scope: node.location_scope || 'district',
-                is_current: node.id === id,
-            }))
-            .sort((a, b) => {
-                const byRank = getLocationScopeRank(a.location_scope) - getLocationScopeRank(b.location_scope);
-                if (byRank !== 0) return byRank;
-                if (a.is_current && !b.is_current) return -1;
-                if (!a.is_current && b.is_current) return 1;
-                return a.issue_text.localeCompare(b.issue_text);
-            });
-
-        if (normalized.length > 0) return normalized;
-
-        return [{
-            id: party.id,
-            issue_text: party.issue_text,
-            location_scope: party.location_scope || 'district',
-            is_current: true,
-        }];
-    })();
-
-    const voicePath = (() => {
-        const byId = new Map<string, HierarchyNodeForNavigation>(
-            hierarchyNodes.map((node) => [node.id, node])
-        );
-        const path: Array<{
-            id: string;
-            issue_text: string;
-            location_scope: string;
-            total_members: number;
-            is_current: boolean;
-            is_leading: boolean;
-        }> = [];
-
-        let cursor: string | null = id;
-        const visited = new Set<string>();
-
-        while (cursor && !visited.has(cursor)) {
-            visited.add(cursor);
-            const node = byId.get(cursor);
-            if (!node) break;
-
-            path.push({
-                id: node.id,
-                issue_text: node.issue_text,
-                location_scope: node.location_scope || 'district',
-                total_members: node.total_member_count || node.aggregated_member_count || node.member_count || 0,
-                is_current: node.id === id,
-                is_leading: !!node.is_leading_coalition,
-            });
-
-            cursor = node.parent_party_id || null;
-        }
-
-        if (path.length > 0) return path;
-
-        return [{
-            id: party.id,
-            issue_text: party.issue_text,
-            location_scope: party.location_scope || 'district',
-            total_members: memberCount || 0,
-            is_current: true,
-            is_leading: false,
-        }];
-    })();
-
     const rankContext = await (async () => {
         const scope = party.location_scope || 'district';
         let rankQuery = supabase
@@ -479,7 +384,6 @@ export default async function PartyPage({ params }: Props) {
             isLeading: index === 0,
         };
     })();
-
 
     const weeklyTrend = await (async () => {
         const cutoff = new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString();
@@ -636,14 +540,12 @@ export default async function PartyPage({ params }: Props) {
             siblingGroups={siblingGroups}
             currentAlliance={currentAlliance}
             canEditPartyIcon={isAdmin || groupInternalLeaderId === effectiveUserId}
-            levelNavigationTargets={levelNavigationTargets}
             initialLikeCount={likeCount}
             initialLikedByMe={likedByMe}
             weeklyMemberDelta={weeklyTrend.delta}
             trendingPercent={weeklyTrend.percent}
             rankInScope={rankContext.rank}
             isLeadingInScope={rankContext.isLeading}
-            voicePath={voicePath}
             groupLeaderMeta={{
                 leaderId: groupInternalLeaderId,
                 leaderName: groupLeaderMember?.display_name || null,

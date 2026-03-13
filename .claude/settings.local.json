@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /c/Users/viky1/Downloads/openpolitics/src/app/party/[id]/components -name \"*.tsx\")"
+      "Bash(find /c/Users/viky1/Downloads/openpolitics/src/app/party/[id]/components -name \"*.tsx\")",
+      "Bash(npx tsc --noEmit --project tsconfig.json)"
     ]
   }
 }

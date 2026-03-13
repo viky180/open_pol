@@ -6,11 +6,17 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { useLanguage, copy, type AppLanguage } from '@/components/LanguageContext';
 import { OnboardingStepIndicator } from '@/components/OnboardingStepIndicator';
-import type { Category, Party } from '@/types/database';
+import type { Category, Issue, Party } from '@/types/database';
 
 interface GroupItem {
     party: Party;
     memberCount: number;
+    issueName: string | null;
+}
+
+interface IssueWithNationalGroups {
+    issue: Issue;
+    groups: GroupItem[];
 }
 
 const CATEGORY_CODES: Record<string, string> = {
@@ -47,7 +53,7 @@ export default function WelcomePage() {
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-    const [groups, setGroups] = useState<GroupItem[]>([]);
+    const [issuesWithNationalGroups, setIssuesWithNationalGroups] = useState<IssueWithNationalGroups[]>([]);
     const [loadingCategories, setLoadingCategories] = useState(true);
     const [loadingGroups, setLoadingGroups] = useState(false);
     const [showAllCategories, setShowAllCategories] = useState(false);
@@ -158,7 +164,7 @@ export default function WelcomePage() {
 
     useEffect(() => {
         if (!selectedCategory) {
-            setGroups([]);
+            setIssuesWithNationalGroups([]);
             return;
         }
 
@@ -167,15 +173,68 @@ export default function WelcomePage() {
         async function fetchGroups() {
             setLoadingGroups(true);
             try {
-                const res = await fetch(`/api/parties?category_id=${categoryId}&limit=10`);
-                if (res.ok) {
-                    const data = await res.json();
-                    const items: GroupItem[] = (data.parties || []).map((p: Party & { member_count?: number }) => ({
+                const [issuesRes, groupsRes] = await Promise.all([
+                    fetch(`/api/issues?category_id=${categoryId}&limit=200`),
+                    fetch(`/api/parties?category_id=${categoryId}&location_scope=national&limit=200`),
+                ]);
+
+                if (!issuesRes.ok || !groupsRes.ok) {
+                    throw new Error('Failed to load issues/groups');
+                }
+
+                const issuesPayload = await issuesRes.json();
+                const groupsPayload = await groupsRes.json();
+
+                const issues: Issue[] = Array.isArray(issuesPayload.issues) ? issuesPayload.issues : [];
+                const items: GroupItem[] = (groupsPayload.parties || []).map((p: Party & { member_count?: number; issue_name?: string | null }) => ({
                         party: p,
                         memberCount: p.member_count || 0,
+                        issueName: p.issue_name ?? null,
                     }));
-                    setGroups(items);
+
+                const groupsByIssueId = new Map<string, GroupItem[]>();
+                const groupsByIssueText = new Map<string, GroupItem[]>();
+                for (const item of items) {
+                    const issueId = item.party.issue_id?.trim() || '';
+                    if (issueId) {
+                        const existing = groupsByIssueId.get(issueId) || [];
+                        existing.push(item);
+                        groupsByIssueId.set(issueId, existing);
+                    }
+
+                    const textKey = (item.issueName || '').trim().toLowerCase();
+                    if (textKey) {
+                        const existing = groupsByIssueText.get(textKey) || [];
+                        existing.push(item);
+                        groupsByIssueText.set(textKey, existing);
+                    }
                 }
+
+                const sections: IssueWithNationalGroups[] = issues.map((issue) => {
+                    const issueIdMatches = groupsByIssueId.get(issue.id) || [];
+                    const issueTextKey = issue.issue_text.trim().toLowerCase();
+                    const issueTextMatches = issueIdMatches.length === 0
+                        ? (groupsByIssueText.get(issueTextKey) || [])
+                        : [];
+
+                    const seenPartyIds = new Set<string>();
+                    const mergedGroups: GroupItem[] = [];
+                    for (const group of [...issueIdMatches, ...issueTextMatches]) {
+                        if (seenPartyIds.has(group.party.id)) continue;
+                        seenPartyIds.add(group.party.id);
+                        mergedGroups.push(group);
+                    }
+
+                    mergedGroups.sort((a, b) => {
+                        if (a.party.is_founding_group && !b.party.is_founding_group) return -1;
+                        if (!a.party.is_founding_group && b.party.is_founding_group) return 1;
+                        return b.memberCount - a.memberCount;
+                    });
+
+                    return { issue, groups: mergedGroups };
+                });
+
+                setIssuesWithNationalGroups(sections);
             } catch (err) {
                 console.error('Failed to fetch groups:', err);
             } finally {
@@ -562,7 +621,7 @@ export default function WelcomePage() {
                                 </span>
                                 <div>
                                     <h2 className="text-lg font-semibold text-text-primary">{selectedCategory.name}</h2>
-                                    <p className="text-xs text-text-muted">Groups working on this cause</p>
+                                    <p className="text-xs text-text-muted">Issues under this cause and their national groups</p>
                                 </div>
                             </div>
 
@@ -570,34 +629,67 @@ export default function WelcomePage() {
 
                             {loadingGroups ? (
                                 <div className="py-6">
-                                    <p className="text-center text-sm text-text-muted mb-4">Finding groups for your cause...</p>
+                                    <p className="text-center text-sm text-text-muted mb-4">Finding issues and national groups...</p>
                                     <div className="space-y-3">
                                         {Array.from({ length: 3 }).map((_, i) => (
-                                            <div key={i} className="h-20 rounded-xl border border-border-primary bg-bg-secondary animate-pulse" />
+                                            <div key={i} className="h-28 rounded-xl border border-border-primary bg-bg-secondary animate-pulse" />
                                         ))}
                                     </div>
                                 </div>
-                            ) : groups.length > 0 ? (
-                                <div className="space-y-3">
-                                    {groups.map(({ party, memberCount }) => (
-                                        <div key={party.id} className="brand-panel p-4">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <Link href={`/party/${party.id}`} className="flex-1 min-w-0">
-                                                    <h3 className="text-base font-medium text-text-primary line-clamp-2">{party.issue_text}</h3>
-                                                    <div className="flex items-center gap-3 mt-2 text-sm text-text-muted">
-                                                        <span>{memberCount} {memberCount === 1 ? 'member' : 'members'}</span>
-                                                    </div>
-                                                </Link>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleJoin(party.id)}
-                                                    disabled={joinLoadingPartyId !== null}
-                                                    className="btn btn-primary btn-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    {joinLoadingPartyId === party.id ? 'Joining...' : 'Join'}
-                                                </button>
+                            ) : issuesWithNationalGroups.length > 0 ? (
+                                <div className="space-y-4">
+                                    {issuesWithNationalGroups.map(({ issue, groups: nationalGroups }) => (
+                                        <div key={issue.id} className="brand-panel p-4">
+                                            <div className="mb-3">
+                                                <h3 className="text-base font-semibold text-text-primary">{issue.issue_text}</h3>
+                                                <p className="text-xs text-text-muted mt-1">National groups for this issue</p>
                                             </div>
-                                            <p className="mt-2 text-xs text-text-muted">Open a group to read more, or join directly if it already fits.</p>
+
+                                            {nationalGroups.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {nationalGroups.map(({ party, memberCount }) => (
+                                                        <div key={party.id} className="rounded-xl border border-border-primary bg-bg-secondary p-3">
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <Link href={`/party/${party.id}`} className="flex-1 min-w-0">
+                                                                    <h4 className="text-sm font-medium text-text-primary line-clamp-2">{party.issue_text}</h4>
+                                                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                                        {party.is_founding_group && (
+                                                                            <span className="inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted border border-border-primary">Founding group</span>
+                                                                        )}
+                                                                        <span className="text-sm text-text-muted">{memberCount} {memberCount === 1 ? 'member' : 'members'}</span>
+                                                                    </div>
+                                                                </Link>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleJoin(party.id)}
+                                                                    disabled={joinLoadingPartyId !== null}
+                                                                    className="btn btn-primary btn-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                >
+                                                                    {joinLoadingPartyId === party.id ? 'Joining...' : 'Join'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-xl border border-border-primary bg-bg-secondary p-3">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <h4 className="text-sm font-medium text-text-primary">Founding group</h4>
+                                                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                                <span className="inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted border border-border-primary">Founding group</span>
+                                                                <span className="text-sm text-text-muted">0 members</span>
+                                                            </div>
+                                                        </div>
+                                                        <Link
+                                                            href={`/party/create?category=${selectedCategory.id}&issue=${encodeURIComponent(issue.issue_text)}&location_scope=national`}
+                                                            className="btn btn-primary btn-sm whitespace-nowrap"
+                                                        >
+                                                            Create founding group
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
 
@@ -616,8 +708,8 @@ export default function WelcomePage() {
                                 </div>
                             ) : (
                                 <div className="text-center py-8 rounded-xl border border-dashed border-border-primary bg-bg-tertiary">
-                                    <p className="text-text-primary font-medium mb-2">No groups for {selectedCategory.name} yet</p>
-                                    <p className="text-sm text-text-muted mb-4">Be the first to start a group for this cause.</p>
+                                    <p className="text-text-primary font-medium mb-2">No issues for {selectedCategory.name} yet</p>
+                                    <p className="text-sm text-text-muted mb-4">Be the first to add an issue for this cause.</p>
                                     <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                                         <button type="button" onClick={handleBackToCategories} className="btn btn-secondary">
                                             Try another cause
