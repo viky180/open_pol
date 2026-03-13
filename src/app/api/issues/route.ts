@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { buildFoundingGroupName } from '@/lib/foundingGroups';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/issues — list issues with national group count
@@ -88,7 +89,11 @@ export async function POST(request: NextRequest) {
     const { error: foundingGroupError } = await supabase
         .from('parties')
         .insert({
-            issue_text: 'Founding group',
+            issue_text: buildFoundingGroupName({
+                issueText: issue.issue_text,
+                locationScope: 'national',
+                locationLabel: 'India',
+            }),
             pincodes: [],
             category_id: issue.category_id || null,
             created_by: user.id,

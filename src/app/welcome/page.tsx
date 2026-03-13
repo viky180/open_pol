@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 import { useLanguage, copy, type AppLanguage } from '@/components/LanguageContext';
 import { OnboardingStepIndicator } from '@/components/OnboardingStepIndicator';
+import { buildFoundingGroupName, resolvePartyDisplayName } from '@/lib/foundingGroups';
 import type { Category, Issue, Party } from '@/types/database';
 
 interface GroupItem {
@@ -647,11 +648,25 @@ export default function WelcomePage() {
 
                                             {nationalGroups.length > 0 ? (
                                                 <div className="space-y-3">
-                                                    {nationalGroups.map(({ party, memberCount }) => (
+                                                    {nationalGroups.map(({ party, memberCount, issueName }) => {
+                                                        const displayName = resolvePartyDisplayName({
+                                                            partyName: party.issue_text,
+                                                            isFoundingGroup: party.is_founding_group,
+                                                            issueText: issueName ?? issue.issue_text,
+                                                            locationScope: party.location_scope,
+                                                            locationLabel: party.location_label,
+                                                            stateName: party.state_name,
+                                                            districtName: party.district_name,
+                                                            blockName: party.block_name,
+                                                            panchayatName: party.panchayat_name,
+                                                            villageName: party.village_name,
+                                                        });
+
+                                                        return (
                                                         <div key={party.id} className="rounded-xl border border-border-primary bg-bg-secondary p-3">
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <Link href={`/party/${party.id}`} className="flex-1 min-w-0">
-                                                                    <h4 className="text-sm font-medium text-text-primary line-clamp-2">{party.issue_text}</h4>
+                                                                    <h4 className="text-sm font-medium text-text-primary line-clamp-2">{displayName}</h4>
                                                                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                                                         {party.is_founding_group && (
                                                                             <span className="inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted border border-border-primary">Founding group</span>
@@ -669,13 +684,20 @@ export default function WelcomePage() {
                                                                 </button>
                                                             </div>
                                                         </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             ) : (
                                                 <div className="rounded-xl border border-border-primary bg-bg-secondary p-3">
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div className="flex-1 min-w-0">
-                                                            <h4 className="text-sm font-medium text-text-primary">Founding group</h4>
+                                                            <h4 className="text-sm font-medium text-text-primary">
+                                                                {buildFoundingGroupName({
+                                                                    issueText: issue.issue_text,
+                                                                    locationScope: 'national',
+                                                                    locationLabel: 'India',
+                                                                })}
+                                                            </h4>
                                                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                                                 <span className="inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted border border-border-primary">Founding group</span>
                                                                 <span className="text-sm text-text-muted">0 members</span>

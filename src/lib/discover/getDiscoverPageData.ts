@@ -2,6 +2,7 @@ import type { Category, LocationScope, Party } from '@/types/database';
 import type { Database } from '@/types/database';
 import type { DiscoverAllianceItem, DiscoverGroupItem, ExploreScope, GroupType } from '@/types/discover';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { buildFoundingGroupName, isLegacyFoundingGroupName, resolvePartyDisplayName } from '@/lib/foundingGroups';
 
 export type DiscoverView = 'groups' | 'alliances' | 'issues';
 
@@ -199,19 +200,22 @@ async function getDiscoverIssueItems(
         issuesQuery = issuesQuery.ilike('issue_text', `%${options.query}%`);
     }
 
-    const { data: issuesRaw } = await issuesQuery;
+    const partyRowsQuery = supabase
+        .from('parties')
+        .select('id, issue_id')
+        .eq('location_scope', 'national')
+        .not('issue_id', 'is', null);
+
+    const [{ data: issuesRaw }, { data: partyRows }] = await Promise.all([
+        issuesQuery,
+        partyRowsQuery
+    ]);
 
     const issuesData = (issuesRaw || []) as Array<{ id: string; issue_text: string }>;
     if (issuesData.length === 0) return [];
 
     // Fetch national groups grouped per issue
     // Since parties_with_member_counts view may lack issue_id, we fetch base table first
-    const { data: partyRows } = await supabase
-        .from('parties')
-        .select('id, issue_id')
-        .eq('location_scope', 'national')
-        .not('issue_id', 'is', null);
-
     const nationalParties = (partyRows || []) as Array<{ id: string; issue_id: string }>;
     const partyIds = nationalParties.map((p) => p.id);
 
@@ -266,37 +270,37 @@ export async function getDiscoverPageData(
     const limit = Math.min(Math.max(Number.parseInt(searchParams?.limit || '24', 10), 12), 60);
     const safeOffset = Number.isNaN(offset) || offset < 0 ? 0 : offset;
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-    const activeMembershipResult = user
-        ? await supabase
+    // Start independent promises concurrently
+    const userContextPromise = (async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { user: null, activeMembershipPartyId: null };
+
+        const membershipResult = await supabase
             .from('memberships')
             .select('party_id')
             .eq('user_id', user.id)
             .is('left_at', null)
-            .maybeSingle()
-        : { data: null as { party_id: string } | null };
-    const activeMembershipPartyId = activeMembershipResult.data?.party_id || null;
+            .maybeSingle();
 
-    const [categoriesResult] = await Promise.all([
-        supabase
-            .from('categories')
-            .select('*')
-            .order('name', { ascending: true }),
-    ]);
+        const membership = membershipResult.data as { party_id: string } | null;
+        return { user, activeMembershipPartyId: membership?.party_id || null };
+    })();
 
-    const categories = categoriesResult.data || [];
+    const categoriesPromise = supabase
+        .from('categories')
+        .select('*')
+        .order('name', { ascending: true });
 
     if (activeView === 'alliances') {
-        const allianceItems = await getDiscoverAllianceItems(supabase, {
-            selectedScope,
-            query,
-        });
+        const [categoriesResult, userContext, allianceItems] = await Promise.all([
+            categoriesPromise,
+            userContextPromise,
+            getDiscoverAllianceItems(supabase, { selectedScope, query }),
+        ]);
 
         return {
             activeView,
-            categories,
+            categories: categoriesResult.data || [],
             groupItems: [],
             allianceItems,
             issueItems: [],
@@ -307,18 +311,20 @@ export async function getDiscoverPageData(
             limit,
             hasMore: false,
             totalMembers: 0,
-            activeMembershipPartyId,
+            activeMembershipPartyId: userContext.activeMembershipPartyId,
         };
     }
 
     if (activeView === 'issues') {
-        const issueItems = await getDiscoverIssueItems(supabase, {
-            query,
-            selectedCategory,
-        });
+        const [categoriesResult, userContext, issueItems] = await Promise.all([
+            categoriesPromise,
+            userContextPromise,
+            getDiscoverIssueItems(supabase, { query, selectedCategory }),
+        ]);
+
         return {
             activeView,
-            categories,
+            categories: categoriesResult.data || [],
             groupItems: [],
             allianceItems: [],
             issueItems,
@@ -329,14 +335,14 @@ export async function getDiscoverPageData(
             limit,
             hasMore: false,
             totalMembers: 0,
-            activeMembershipPartyId,
+            activeMembershipPartyId: userContext.activeMembershipPartyId,
         };
     }
 
     const isSearching = query.length > 0;
     const dbScope = SCOPE_TO_DB_SCOPE[selectedScope];
 
-    const partyRowsResult = await (() => {
+    const partyRowsPromise = (() => {
         let partiesQuery = supabase
             .from('parties_with_member_counts')
             .select('*')
@@ -355,7 +361,16 @@ export async function getDiscoverPageData(
         return partiesQuery;
     })();
 
+    const [categoriesResult, userContext, partyRowsResult] = await Promise.all([
+        categoriesPromise,
+        userContextPromise,
+        partyRowsPromise,
+    ]);
+
+    const categories = categoriesResult.data || [];
     const partyRows = partyRowsResult.data;
+    const activeMembershipPartyId = userContext.activeMembershipPartyId;
+    const user = userContext.user;
     const hasMore = (partyRows || []).length > limit;
     const allParties = (hasMore ? (partyRows || []).slice(0, limit) : (partyRows || [])) as PartyWithMemberCountRow[];
 
@@ -368,6 +383,47 @@ export async function getDiscoverPageData(
         }
     });
 
+    // Resolve issue texts for any group that still carries the legacy "Founding group" name.
+    // These groups were created before the name was computed from the issue text, and may
+    // have is_founding_group = false or null on older records.
+    const legacyFoundingGroupIssueIds = Array.from(
+        new Set(
+            allParties
+                .filter((p) => p.issue_id && isLegacyFoundingGroupName(p.issue_text))
+                .map((p) => p.issue_id as string),
+        ),
+    );
+
+    const issueTextById = new Map<string, string>();
+    if (legacyFoundingGroupIssueIds.length > 0) {
+        const { data: issueRowsRaw } = await supabase
+            .from('issues')
+            .select('id, issue_text')
+            .in('id', legacyFoundingGroupIssueIds);
+        const issueRows = (issueRowsRaw || []) as Array<{ id: string; issue_text: string }>;
+        issueRows.forEach((row) => {
+            issueTextById.set(row.id, row.issue_text);
+        });
+    }
+
+    // Patch legacy group names in-place before building groupItems.
+    allParties.forEach((p) => {
+        if (p.issue_id && isLegacyFoundingGroupName(p.issue_text)) {
+            const issueText = issueTextById.get(p.issue_id);
+            if (issueText) {
+                p.issue_text = buildFoundingGroupName({
+                    issueText,
+                    locationScope: p.location_scope ?? undefined,
+                    locationLabel: p.location_label ?? undefined,
+                    stateName: p.state_name ?? undefined,
+                    districtName: p.district_name ?? undefined,
+                    blockName: p.block_name ?? undefined,
+                    panchayatName: p.panchayat_name ?? undefined,
+                    villageName: p.village_name ?? undefined,
+                });
+            }
+        }
+    });
 
     const parties = allParties.filter((p) => {
         const looksLikeChildNode = p.node_type === 'group';
@@ -425,9 +481,9 @@ export async function getDiscoverPageData(
         parentIds.length > 0
             ? supabase
                 .from('parties')
-                .select('id, issue_text')
+                .select('id, issue_text, is_founding_group, location_scope, location_label, state_name, district_name, block_name, panchayat_name, village_name')
                 .in('id', parentIds)
-            : Promise.resolve({ data: [] as { id: string; issue_text: string }[] }),
+            : Promise.resolve({ data: [] as { id: string; issue_text: string; is_founding_group: boolean | null; location_scope: string | null; location_label: string | null; state_name: string | null; district_name: string | null; block_name: string | null; panchayat_name: string | null; village_name: string | null }[] }),
     ]);
 
     const childrenCountByParentId = new Map<string, number>();
@@ -438,7 +494,23 @@ export async function getDiscoverPageData(
 
     const parentNameById = new Map<string, string>();
     (parentNamesResult.data || []).forEach((row) => {
-        parentNameById.set(row.id, row.issue_text);
+        // For legacy founding groups in the parent list, use the already-patched issue_text
+        // (which was updated in allParties above) or fall back to the issue lookup.
+        const resolvedIssueText = (row.is_founding_group && isLegacyFoundingGroupName(row.issue_text))
+            ? (issueTextById.get((allParties.find((p) => p.id === row.id)?.issue_id) ?? '') || row.issue_text)
+            : row.issue_text;
+        parentNameById.set(row.id, resolvePartyDisplayName({
+            partyName: row.issue_text,
+            isFoundingGroup: row.is_founding_group,
+            issueText: resolvedIssueText,
+            locationScope: row.location_scope as LocationScope | undefined,
+            locationLabel: row.location_label,
+            stateName: row.state_name,
+            districtName: row.district_name,
+            blockName: row.block_name,
+            panchayatName: row.panchayat_name,
+            villageName: row.village_name
+        }));
     });
 
 

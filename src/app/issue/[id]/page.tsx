@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { buildFoundingGroupName, resolvePartyDisplayName } from '@/lib/foundingGroups';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getPartyLocationLabel, type PartyWithStats } from '@/types/database';
@@ -11,6 +12,7 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 async function ensureFoundingGroupsForUserLocation({
     supabase,
     issueId,
+    issueText,
     issueCategoryId,
     userId,
     state,
@@ -19,6 +21,7 @@ async function ensureFoundingGroupsForUserLocation({
 }: {
     supabase: SupabaseServerClient;
     issueId: string;
+    issueText: string;
     issueCategoryId: string | null;
     userId: string;
     state?: string | null;
@@ -75,7 +78,12 @@ async function ensureFoundingGroupsForUserLocation({
         const { error: stateInsertError } = await supabase
             .from('parties')
             .insert({
-                issue_text: 'Founding group',
+                issue_text: buildFoundingGroupName({
+                    issueText,
+                    locationScope: 'state',
+                    locationLabel: normalizedState,
+                    stateName: normalizedState,
+                }),
                 pincodes: [],
                 category_id: issueCategoryId,
                 created_by: userId,
@@ -153,7 +161,13 @@ async function ensureFoundingGroupsForUserLocation({
         const { error: districtInsertError } = await supabase
             .from('parties')
             .insert({
-                issue_text: 'Founding group',
+                issue_text: buildFoundingGroupName({
+                    issueText,
+                    locationScope: 'district',
+                    locationLabel: normalizedDistrict,
+                    stateName: normalizedState,
+                    districtName: normalizedDistrict,
+                }),
                 pincodes: [],
                 category_id: issueCategoryId,
                 created_by: userId,
@@ -233,7 +247,14 @@ async function ensureFoundingGroupsForUserLocation({
     const { error: villageInsertError } = await supabase
         .from('parties')
         .insert({
-            issue_text: 'Founding group',
+            issue_text: buildFoundingGroupName({
+                issueText,
+                locationScope: 'village',
+                locationLabel: normalizedVillage,
+                stateName: normalizedState,
+                districtName: normalizedDistrict,
+                villageName: normalizedVillage,
+            }),
             pincodes: [],
             category_id: issueCategoryId,
             created_by: userId,
@@ -303,6 +324,7 @@ export default async function IssueDetailPage({ params, searchParams }: Props) {
         await ensureFoundingGroupsForUserLocation({
             supabase,
             issueId: issue.id,
+            issueText: issue.issue_text,
             issueCategoryId: issue.category_id ?? null,
             userId: user.id,
             state: userStateName,
@@ -376,7 +398,18 @@ export default async function IssueDetailPage({ params, searchParams }: Props) {
     function toSubGroup(p: PartyWithStats): SubGroupData {
         return {
             id: p.id,
-            issue_text: p.issue_text,
+            issue_text: resolvePartyDisplayName({
+                partyName: p.issue_text,
+                isFoundingGroup: p.is_founding_group,
+                issueText: issue.issue_text,
+                locationScope: p.location_scope,
+                locationLabel: getPartyLocationLabel(p),
+                stateName: p.state_name,
+                districtName: p.district_name,
+                blockName: p.block_name,
+                panchayatName: p.panchayat_name,
+                villageName: p.village_name,
+            }),
             member_count: p.member_count ?? 0,
             leader_name: p.leader_name ?? null,
             leader_trust_votes: getLeaderTrustVotes(p),
@@ -420,7 +453,18 @@ export default async function IssueDetailPage({ params, searchParams }: Props) {
 
         return {
             id: ng.id,
-            issue_text: ng.issue_text,
+            issue_text: resolvePartyDisplayName({
+                partyName: ng.issue_text,
+                isFoundingGroup: ng.is_founding_group,
+                issueText: issue.issue_text,
+                locationScope: ng.location_scope,
+                locationLabel: getPartyLocationLabel(ng),
+                stateName: ng.state_name,
+                districtName: ng.district_name,
+                blockName: ng.block_name,
+                panchayatName: ng.panchayat_name,
+                villageName: ng.village_name,
+            }),
             is_founding_group: ng.is_founding_group ?? false,
             member_count: ng.member_count ?? 0,
             leader_name: ng.leader_name ?? null,

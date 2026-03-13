@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
     // parties table. PostgreSQL views with `p.*` don't auto-expand to include new columns unless
     // the view is recreated. So we look up issue_id directly from the parties table, then join issues.
     const partyIds = parties.map((p: Record<string, unknown>) => p.id as string);
-    let issueNameMap: Record<string, string> = {};
+    const issueNameMap: Record<string, string> = {};
     if (partyIds.length > 0) {
         const { data: partyRows } = await supabase
             .from('parties')

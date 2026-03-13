@@ -62,6 +62,7 @@ export default async function PartyPage({ params }: Props) {
         trustVotesResult,
         levelLeaderResult,
         likeCountResult,
+        issueResult,
     ] = await Promise.all([
         // Fetch direct member count from parties table (flat model uses member_count directly)
         supabase
@@ -95,6 +96,14 @@ export default async function PartyPage({ params }: Props) {
             .from('party_likes')
             .select('*', { count: 'exact', head: true })
             .eq('party_id', id),
+
+        party.issue_id
+            ? supabase
+                .from('issues')
+                .select('issue_text')
+                .eq('id', party.issue_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
     ]);
 
     // Keep initial Q&A payload light (counts only). Detailed Q&A content stays lazy.
@@ -563,6 +572,7 @@ export default async function PartyPage({ params }: Props) {
             petitionCampaigns={petitionCampaigns}
             isCurrentUserLeader={groupInternalLeaderId === effectiveUserId}
             issueId={party.issue_id || null}
+            issueName={issueResult.data?.issue_text || null}
         />
     );
 }

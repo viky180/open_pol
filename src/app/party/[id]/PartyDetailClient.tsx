@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { createPartyUrl } from '@/lib/createPartyUrl';
+import { resolvePartyDisplayName } from '@/lib/foundingGroups';
 import { getPartyLocationLabel, getLocationScopeConfig } from '@/types/database';
 import type { Party, MemberWithVotes, QuestionWithAnswers, QAMetrics } from '@/types/database';
 import { buildPartyShareUrl, trackShareEvent } from '@/lib/share';
@@ -97,6 +98,7 @@ interface PartyDetailClientProps {
     }>;
     isCurrentUserLeader: boolean;
     issueId?: string | null;
+    issueName?: string | null;
 }
 
 type StatusTone = 'success' | 'error' | 'info';
@@ -261,6 +263,7 @@ function PartyDetailClientInner({
     petitionCampaigns,
     isCurrentUserLeader,
     issueId,
+    issueName,
 }: PartyDetailClientProps) {
     const supabase = useMemo(() => createClient(), []);
     const [statusMessage, setStatusMessage] = useState<{ tone: StatusTone; text: string } | null>(null);
@@ -346,6 +349,18 @@ function PartyDetailClientInner({
     const foundingElectionMemberThreshold = 50;
     const foundingElectionLocked = isFoundingNationalGroup && memberCountLive < foundingElectionMemberThreshold;
     const locationLabel = getPartyLocationLabel(party);
+    const displayPartyName = resolvePartyDisplayName({
+        partyName: party.issue_text,
+        isFoundingGroup: party.is_founding_group,
+        issueText: issueName || party.issue_text,
+        locationScope: party.location_scope,
+        locationLabel: party.location_label,
+        stateName: party.state_name,
+        districtName: party.district_name,
+        blockName: party.block_name,
+        panchayatName: party.panchayat_name,
+        villageName: party.village_name,
+    });
     const groupSummary = isFoundingNationalGroup
         ? 'This national group helps people organize around this issue until more national groups are formed.'
         : currentParentParty
@@ -365,7 +380,7 @@ function PartyDetailClientInner({
         parent: party.id, category: party.category_id || null,
     });
 
-    const iconPromptText = `Create a clean, simple square SVG logo for this civic group name: "${party.issue_text}".\nRules:\n- Output only raw <svg>...</svg> code.\n- No scripts, no external images/fonts, no foreignObject.\n- Keep it minimal and readable at small sizes (24px/32px).\n- Use warm neutral colors and high contrast text/symbol.\n- Keep file small (under 20KB).`;
+    const iconPromptText = `Create a clean, simple square SVG logo for this civic group name: "${displayPartyName}".\nRules:\n- Output only raw <svg>...</svg> code.\n- No scripts, no external images/fonts, no foreignObject.\n- Keep it minimal and readable at small sizes (24px/32px).\n- Use warm neutral colors and high contrast text/symbol.\n- Keep file small (under 20KB).`;
 
     // Effects
 
@@ -489,7 +504,7 @@ function PartyDetailClientInner({
     const shareUrl = buildPartyShareUrl(party.id);
     const handleShare = async () => {
         await shareWithFallback(
-            { title: party.issue_text, text: `Take a look at this group: ${party.issue_text}`, url: shareUrl },
+            { title: displayPartyName, text: `Take a look at this group: ${displayPartyName}`, url: shareUrl },
             shareUrl,
             'Link copied.',
             (msg) => showStatusMessage('success', msg),
@@ -539,9 +554,9 @@ function PartyDetailClientInner({
     const handleLeaveClick = withRefresh(handleLeave);
 
     const handleInviteFriends = async () => {
-        const message = `Join ${party.issue_text} on Open Politics: ${shareUrl}`;
+        const message = `Join ${displayPartyName} on Open Politics: ${shareUrl}`;
         await shareWithFallback(
-            { title: party.issue_text, text: message, url: shareUrl },
+            { title: displayPartyName, text: message, url: shareUrl },
             message,
             'Invite message copied.',
             (msg) => showStatusMessage('success', msg),
@@ -755,7 +770,7 @@ function PartyDetailClientInner({
 
                     <div className="mt-4 flex items-start gap-4">
                         <GroupIconBadge
-                            name={party.issue_text}
+                            name={displayPartyName}
                             iconSvg={partyIconSvg}
                             iconImageUrl={partyIconImageUrl}
                             size={84}
@@ -769,7 +784,7 @@ function PartyDetailClientInner({
                             </p>
                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                 <h1 className="text-3xl leading-tight text-white sm:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>
-                                    {party.issue_text}
+                                    {displayPartyName}
                                 </h1>
                                 {isFoundingNationalGroup && (
                                     <InfoTooltip
