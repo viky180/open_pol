@@ -47,7 +47,7 @@ export function getChildDefaultScope(parentScope: string | null | undefined): st
         return nextCreationScope?.value || currentScope;
     }
 
-    // Legacy fallback (for compatibility with older scope values)
+    // Fallback for non-launch scopes (for example: block, panchayat).
     const currentIndex = LOCATION_SCOPE_LEVELS.findIndex((scope) => scope.value === currentScope);
     if (currentIndex === -1) return 'district';
     const nextScope = LOCATION_SCOPE_LEVELS[currentIndex + 1];

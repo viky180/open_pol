@@ -2,7 +2,7 @@ import type { Category, LocationScope, Party } from '@/types/database';
 import type { Database } from '@/types/database';
 import type { DiscoverAllianceItem, DiscoverGroupItem, ExploreScope, GroupType } from '@/types/discover';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { buildFoundingGroupName, isLegacyFoundingGroupName, resolvePartyDisplayName } from '@/lib/foundingGroups';
+import { resolvePartyDisplayName } from '@/lib/foundingGroups';
 
 export type DiscoverView = 'groups' | 'alliances' | 'issues';
 
@@ -63,13 +63,11 @@ const SCOPE_TO_DB_SCOPE: Record<ExploreScope, LocationScope> = {
     india: 'national',
     state: 'state',
     district: 'district',
-    block: 'block',
-    ward: 'panchayat',
     village: 'village',
 };
 
 function toExploreScope(value?: string): ExploreScope {
-    if (value === 'state' || value === 'district' || value === 'block' || value === 'ward' || value === 'village') {
+    if (value === 'state' || value === 'district' || value === 'village') {
         return value;
     }
 
@@ -383,48 +381,6 @@ export async function getDiscoverPageData(
         }
     });
 
-    // Resolve issue texts for any group that still carries the legacy "Founding group" name.
-    // These groups were created before the name was computed from the issue text, and may
-    // have is_founding_group = false or null on older records.
-    const legacyFoundingGroupIssueIds = Array.from(
-        new Set(
-            allParties
-                .filter((p) => p.issue_id && isLegacyFoundingGroupName(p.issue_text))
-                .map((p) => p.issue_id as string),
-        ),
-    );
-
-    const issueTextById = new Map<string, string>();
-    if (legacyFoundingGroupIssueIds.length > 0) {
-        const { data: issueRowsRaw } = await supabase
-            .from('issues')
-            .select('id, issue_text')
-            .in('id', legacyFoundingGroupIssueIds);
-        const issueRows = (issueRowsRaw || []) as Array<{ id: string; issue_text: string }>;
-        issueRows.forEach((row) => {
-            issueTextById.set(row.id, row.issue_text);
-        });
-    }
-
-    // Patch legacy group names in-place before building groupItems.
-    allParties.forEach((p) => {
-        if (p.issue_id && isLegacyFoundingGroupName(p.issue_text)) {
-            const issueText = issueTextById.get(p.issue_id);
-            if (issueText) {
-                p.issue_text = buildFoundingGroupName({
-                    issueText,
-                    locationScope: p.location_scope ?? undefined,
-                    locationLabel: p.location_label ?? undefined,
-                    stateName: p.state_name ?? undefined,
-                    districtName: p.district_name ?? undefined,
-                    blockName: p.block_name ?? undefined,
-                    panchayatName: p.panchayat_name ?? undefined,
-                    villageName: p.village_name ?? undefined,
-                });
-            }
-        }
-    });
-
     const parties = allParties.filter((p) => {
         const looksLikeChildNode = p.node_type === 'group';
 
@@ -494,15 +450,10 @@ export async function getDiscoverPageData(
 
     const parentNameById = new Map<string, string>();
     (parentNamesResult.data || []).forEach((row) => {
-        // For legacy founding groups in the parent list, use the already-patched issue_text
-        // (which was updated in allParties above) or fall back to the issue lookup.
-        const resolvedIssueText = (row.is_founding_group && isLegacyFoundingGroupName(row.issue_text))
-            ? (issueTextById.get((allParties.find((p) => p.id === row.id)?.issue_id) ?? '') || row.issue_text)
-            : row.issue_text;
         parentNameById.set(row.id, resolvePartyDisplayName({
             partyName: row.issue_text,
             isFoundingGroup: row.is_founding_group,
-            issueText: resolvedIssueText,
+            issueText: row.issue_text,
             locationScope: row.location_scope as LocationScope | undefined,
             locationLabel: row.location_label,
             stateName: row.state_name,

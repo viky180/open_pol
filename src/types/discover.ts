@@ -1,7 +1,7 @@
 import type { Alliance, LocationScope, Party } from '@/types/database';
 
 export type GroupType = 'standalone' | 'parent';
-export type ExploreScope = 'india' | 'state' | 'district' | 'block' | 'ward' | 'village';
+export type ExploreScope = 'india' | 'state' | 'district' | 'village';
 
 export type HierarchyChild = {
     party: Party;

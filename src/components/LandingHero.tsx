@@ -15,30 +15,30 @@ export function LandingHero({ totalGroups, totalMembers, totalLocations }: Landi
                 <div className="editorial-hero">
                     <p className="editorial-hero__eyebrow">Built for issue-based organizing in India</p>
                     <h1 className="editorial-hero__title">
-                        Turn a local problem
+                        Turn frustrated citizens
                         <br />
-                        into visible political pressure.
+                        into an organized political force.
                     </h1>
                     <p className="editorial-hero__body">
-                        Open Politics helps Indian citizens organize around real issues like water, roads, jobs, transport, safety, and local governance.
-                        Start or join a group in your area, build support people can see, choose who represents your members, and scale from pincode to district to state without losing local control.
+                        Channel scattered frustration into a structured group with a democratically chosen leader who stays continuously accountable to members — not to a party. And if you want to build a career in politics, this is where real common people back you and fund you.
                     </p>
 
                     <div className="mt-6 flex flex-wrap gap-2 text-xs sm:text-sm">
-                        <span className="issue-meta-chip">Pincode-based discovery</span>
-                        <span className="issue-meta-chip">Issue groups, not party high command</span>
-                        <span className="issue-meta-chip">Transparent support and trust</span>
-                        <span className="issue-meta-chip">Petitions and funding</span>
+                        <span className="issue-meta-chip">Frustration → organized group</span>
+                        <span className="issue-meta-chip">Democratically chosen leaders</span>
+                        <span className="issue-meta-chip">Continuous accountability</span>
+                        <span className="issue-meta-chip">Funded by common people</span>
                     </div>
 
                     <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                        <Link href="/discover" className="btn btn-secondary btn-lg">
-                            Explore local groups
+                        <Link href="/discover" className="btn btn-primary btn-lg">
+                            Find your local group
                         </Link>
-                        <Link href="/party/create" className="btn btn-primary btn-lg">
+                        <Link href="/party/create" className="btn btn-secondary btn-lg">
                             Start an issue group
                         </Link>
                     </div>
+                    <p className="mt-3 text-sm text-white/60">Join free. One group per level. Change your mind any time.</p>
 
                     <div className="editorial-metrics">
                         <div className="editorial-metric">
@@ -54,8 +54,8 @@ export function LandingHero({ totalGroups, totalMembers, totalLocations }: Landi
                             <div className="editorial-metric__label">Places active</div>
                         </div>
                         <div className="editorial-metric">
-                            <div className="editorial-metric__value">Local</div>
-                            <div className="editorial-metric__label">Organize by issue</div>
+                            <div className="editorial-metric__value">₹0</div>
+                            <div className="editorial-metric__label">Free to organize</div>
                         </div>
                     </div>
                 </div>

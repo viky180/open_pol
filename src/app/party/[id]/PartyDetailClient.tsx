@@ -16,10 +16,13 @@ import {
     IconPreviewModal,
     IconEditorModal,
     LeaveModal,
+    TrustSelectionModal,
     PetitionCampaignModal,
     type PetitionCampaignDraft,
 } from './components/PartyModals';
+import { PostJoinCTABanner } from './components/PostJoinCTABanner';
 import { getProgressHint, getProgressTarget, InfoTooltip } from './components/PartyDetailShared';
+import { GroupHierarchyBreadcrumb } from '@/components/GroupHierarchyBreadcrumb';
 import { GroupIconBadge } from './components/PartyPrimitives';
 import {
     AboutTabPanel,
@@ -43,11 +46,21 @@ interface PartyDetailClientProps {
     currentUserId: string | null;
     isMember: boolean;
     isEligibleVoter: boolean;
-    activeMembershipPartyId: string | null;
+    sameScopeConflictPartyId: string | null;
+    sameScopeConflictIssueText: string | null;
     memberSince: string | null;
     votedFor: string | null;
     voteExpiresAt: string | null;
     currentParentParty: Party | null;
+    ancestorChain: Array<{
+        id: string;
+        location_scope: string | null;
+        state_name: string | null;
+        district_name: string | null;
+        village_name: string | null;
+        location_label: string | null;
+        issue_text: string;
+    }>;
     childGroups: Array<Pick<Party, 'id' | 'issue_text' | 'icon_svg' | 'icon_image_url'> & {
         memberCount: number;
         location_scope: string | null;
@@ -112,11 +125,6 @@ type AutoProvisionNotice = {
 };
 
 const AUTO_PROVISION_NOTICE_STORAGE_KEY = 'openpolitics:auto-provision-notice';
-const AUTO_PROVISION_SCOPE_LABEL: Record<AutoProvisionScope, string> = {
-    state: 'State',
-    district: 'District',
-    village: 'Village',
-};
 
 const MENU_ITEM_CLS = 'block px-3 py-2.5 text-sm hover:bg-bg-secondary';
 
@@ -244,11 +252,12 @@ function PartyDetailClientInner({
     members,
     currentUserId,
     isMember,
-    activeMembershipPartyId,
+    sameScopeConflictPartyId,
+    sameScopeConflictIssueText,
     memberSince,
+    votedFor,
     currentParentParty,
-    childGroups,
-    siblingGroups,
+    ancestorChain,
     currentAlliance,
     canEditPartyIcon,
     initialLikeCount,
@@ -268,6 +277,8 @@ function PartyDetailClientInner({
     const supabase = useMemo(() => createClient(), []);
     const [statusMessage, setStatusMessage] = useState<{ tone: StatusTone; text: string } | null>(null);
     const [autoProvisionNotice, setAutoProvisionNotice] = useState<AutoProvisionNotice | null>(null);
+    const [showPostJoinBanner, setShowPostJoinBanner] = useState(false);
+    const [showTrustModal, setShowTrustModal] = useState(false);
     const [activeTab, setActiveTab] = useState<PartyDetailTabId>('about');
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [showPeopleNames, setShowPeopleNames] = useState(false);
@@ -291,6 +302,7 @@ function PartyDetailClientInner({
         joinLoading,
         optimisticIsMember,
         joinDisabled,
+        hasMembershipElsewhere,
         showAuthModal,
         setShowAuthModal,
         showLeaveModal,
@@ -301,10 +313,48 @@ function PartyDetailClientInner({
         partyId: party.id,
         currentUserId,
         isMember,
-        activeMembershipPartyId,
+        sameScopeConflictPartyId,
         memberSince,
         singleMembershipHint,
         onStatusMessage: showStatusMessage,
+        onJoinSuccess: async (autoProvision) => {
+            if (autoProvision) {
+                const notice: AutoProvisionNotice = {
+                    targetPartyId: party.id,
+                    created: autoProvision.created || [],
+                    reused: autoProvision.reused || [],
+                    skipped: autoProvision.skipped || [],
+                    createdAt: Date.now(),
+                };
+                setAutoProvisionNotice(notice);
+                try {
+                    window.sessionStorage.setItem(AUTO_PROVISION_NOTICE_STORAGE_KEY, JSON.stringify(notice));
+                } catch { /* best effort */ }
+            } else if (party.location_scope === 'national') {
+                // Backward-compatible fallback for clients that join without autoProvision payload.
+                try {
+                    const res = await fetch(`/api/parties/${party.id}/provision-local`, { method: 'POST' });
+                    const provisionResult = await res.json().catch(() => null);
+                    if (provisionResult) {
+                        const notice: AutoProvisionNotice = {
+                            targetPartyId: party.id,
+                            created: provisionResult.created || [],
+                            reused: provisionResult.reused || [],
+                            skipped: provisionResult.skipped || [],
+                            createdAt: Date.now(),
+                        };
+                        setAutoProvisionNotice(notice);
+                        try {
+                            window.sessionStorage.setItem(AUTO_PROVISION_NOTICE_STORAGE_KEY, JSON.stringify(notice));
+                        } catch { /* best effort */ }
+                    }
+                } catch {
+                    // Non-fatal
+                }
+            }
+
+            setShowPostJoinBanner(true);
+        },
     });
 
     const {
@@ -474,6 +524,15 @@ function PartyDetailClientInner({
             setMemberCountLive((prev) => Math.max(0, prev - 1));
         }
     }, [optimisticIsMember, isMember]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('action') === 'vote' && optimisticIsMember) {
+            setShowTrustModal(true);
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    }, [optimisticIsMember]);
 
     useEffect(() => {
         if (!showMoreMenu) return;
@@ -666,36 +725,26 @@ function PartyDetailClientInner({
                 </div>
             )}
 
-            {autoProvisionNotice && (
-                <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-text-primary">
-                    <p className="font-semibold text-accent">Your local path is ready</p>
-                    <p className="mt-1 text-text-secondary">
-                        We found or created the next local groups for this issue:
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {[...autoProvisionNotice.created, ...autoProvisionNotice.reused].map((item) => (
-                            <Link
-                                key={`${item.scope}-${item.party_id}`}
-                                href={`/party/${item.party_id}`}
-                                className="btn btn-secondary btn-sm"
-                            >
-                                Open {AUTO_PROVISION_SCOPE_LABEL[item.scope]} group
-                            </Link>
-                        ))}
-                    </div>
-                    <button
-                        type="button"
-                        className="mt-2 text-xs text-text-muted underline"
-                        onClick={() => {
-                            if (typeof window !== 'undefined') {
-                                window.sessionStorage.removeItem(AUTO_PROVISION_NOTICE_STORAGE_KEY);
-                            }
-                            setAutoProvisionNotice(null);
-                        }}
-                    >
-                        Dismiss
-                    </button>
-                </div>
+            {(showPostJoinBanner || autoProvisionNotice) && (
+                <PostJoinCTABanner
+                    hasVoted={!!votedFor}
+                    onCastVote={() => setShowTrustModal(true)}
+                    autoProvisionLinks={autoProvisionNotice ? [...autoProvisionNotice.created, ...autoProvisionNotice.reused] : []}
+                    missingLocationScopes={autoProvisionNotice?.skipped.filter(s => s.reason === 'missing_location').map(s => s.scope as 'state' | 'district' | 'village') ?? []}
+                    electWizardUrl={(() => {
+                        const nationalId = party.location_scope === 'national'
+                            ? party.id
+                            : (ancestorChain.find(a => a.location_scope === 'national')?.id ?? null);
+                        return nationalId ? `/onboarding/elect?nationalId=${nationalId}` : undefined;
+                    })()}
+                    onDismiss={() => {
+                        setShowPostJoinBanner(false);
+                        if (typeof window !== 'undefined') {
+                            window.sessionStorage.removeItem(AUTO_PROVISION_NOTICE_STORAGE_KEY);
+                        }
+                        setAutoProvisionNotice(null);
+                    }}
+                />
             )}
 
             {/* 1) Hero */}
@@ -812,11 +861,16 @@ function PartyDetailClientInner({
                                     </button>
                                 )}
                             </div>
-                            <div className="mt-4 flex flex-wrap gap-2">
+                            {!optimisticIsMember && !hasMembershipElsewhere && (
+                                <div className="mt-3 flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/8 px-3 py-2 text-xs text-white/70">
+                                    <span>One group per level — state, district, and village can each be joined separately.</span>
+                                </div>
+                            )}
+                            <div className="mt-3 flex flex-wrap gap-2">
                                 {optimisticIsMember ? (
                                     <>
-                                        <button type="button" className="btn btn-secondary btn-sm" disabled>
-                                            Joined
+                                        <button type="button" className="btn btn-secondary btn-sm text-red-400" onClick={() => setShowLeaveModal(true)}>
+                                            Leave group
                                         </button>
                                         <button type="button" className="btn btn-primary btn-sm" onClick={handleInviteFriends}>
                                             Invite others
@@ -828,12 +882,21 @@ function PartyDetailClientInner({
                                             {joinLoading ? 'Joining...' : 'Join group'}
                                         </button>
                                         <button type="button" className="btn btn-secondary btn-sm" onClick={handleLikeToggle} disabled={likeLoading}>
-                                            {likeLoading ? 'Saving...' : likedByMe ? 'Saved' : 'Save'}
+                                            {likeLoading ? '❤️ Saving...' : likedByMe ? '❤️ Liked' : '🤍 Like'}
                                         </button>
                                     </>
                                 )}
                             </div>
-                            <p className="mt-3 text-xs leading-6 text-white/60">{singleMembershipHint}</p>
+                            {!optimisticIsMember && hasMembershipElsewhere && sameScopeConflictPartyId && (
+                                <div className="mt-3 rounded-xl border border-white/15 bg-white/8 px-3 py-2 text-xs text-white/80">
+                                    You already have a {locationScope.label.toLowerCase()} group
+                                    {sameScopeConflictIssueText ? ` for "${sameScopeConflictIssueText}"` : ''}.{' '}
+                                    <Link href={`/party/${sameScopeConflictPartyId}`} className="underline">
+                                        View it
+                                    </Link>{' '}
+                                    or leave it first to join this one.
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -854,7 +917,16 @@ function PartyDetailClientInner({
                 </div>
             </header>
 
-            {/* 2) Tabs */}
+            {/* 2) Hierarchy breadcrumb — only when this group has parents */}
+            {ancestorChain.length > 1 && (
+                <GroupHierarchyBreadcrumb
+                    currentPartyId={party.id}
+                    currentScope={party.location_scope ?? null}
+                    ancestors={ancestorChain}
+                />
+            )}
+
+            {/* 3) Tabs */}
             <section className="mb-4">
                 <PartyDetailTabs activeTab={activeTab} onChange={setActiveTab} />
             </section>
@@ -998,6 +1070,22 @@ function PartyDetailClientInner({
 
             {/* Modals */}
             {showAuthModal && <AuthModal partyId={party.id} onCancel={() => setShowAuthModal(false)} />}
+
+            {showTrustModal && optimisticIsMember && (
+                <TrustSelectionModal
+                    partyId={party.id}
+                    partyName={party.issue_text}
+                    members={members}
+                    currentUserId={currentUserId}
+                    votedFor={votedFor}
+                    onVoteChange={() => {
+                        setShowTrustModal(false);
+                        setShowPostJoinBanner(false);
+                        router.refresh();
+                    }}
+                    onClose={() => setShowTrustModal(false)}
+                />
+            )}
 
 
             {showLeaveModal && (

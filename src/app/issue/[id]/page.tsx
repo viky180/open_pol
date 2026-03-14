@@ -53,7 +53,9 @@ async function ensureFoundingGroupsForUserLocation({
         .from('parties')
         .select('id')
         .eq('issue_id', issueId)
+        .eq('parent_party_id', foundingNationalGroup.id)
         .eq('location_scope', 'state')
+        .eq('is_founding_group', true)
         .eq('state_name', normalizedState)
         .order('created_at', { ascending: true })
         .limit(1)
@@ -64,7 +66,9 @@ async function ensureFoundingGroupsForUserLocation({
             .from('parties')
             .select('id')
             .eq('issue_id', issueId)
+            .eq('parent_party_id', foundingNationalGroup.id)
             .eq('location_scope', 'state')
+            .eq('is_founding_group', true)
             .eq('location_label', normalizedState)
             .order('created_at', { ascending: true })
             .limit(1)
@@ -104,7 +108,9 @@ async function ensureFoundingGroupsForUserLocation({
             .from('parties')
             .select('id')
             .eq('issue_id', issueId)
+            .eq('parent_party_id', foundingNationalGroup.id)
             .eq('location_scope', 'state')
+            .eq('is_founding_group', true)
             .eq('state_name', normalizedState)
             .order('created_at', { ascending: true })
             .limit(1)
@@ -115,7 +121,9 @@ async function ensureFoundingGroupsForUserLocation({
                 .from('parties')
                 .select('id')
                 .eq('issue_id', issueId)
+                .eq('parent_party_id', foundingNationalGroup.id)
                 .eq('location_scope', 'state')
+                .eq('is_founding_group', true)
                 .eq('location_label', normalizedState)
                 .order('created_at', { ascending: true })
                 .limit(1)
@@ -134,7 +142,9 @@ async function ensureFoundingGroupsForUserLocation({
         .from('parties')
         .select('id')
         .eq('issue_id', issueId)
+        .eq('parent_party_id', statePartyId)
         .eq('location_scope', 'district')
+        .eq('is_founding_group', true)
         .eq('state_name', normalizedState)
         .eq('district_name', normalizedDistrict)
         .order('created_at', { ascending: true })
@@ -146,7 +156,9 @@ async function ensureFoundingGroupsForUserLocation({
             .from('parties')
             .select('id')
             .eq('issue_id', issueId)
+            .eq('parent_party_id', statePartyId)
             .eq('location_scope', 'district')
+            .eq('is_founding_group', true)
             .eq('state_name', normalizedState)
             .eq('location_label', normalizedDistrict)
             .order('created_at', { ascending: true })
@@ -189,7 +201,9 @@ async function ensureFoundingGroupsForUserLocation({
             .from('parties')
             .select('id')
             .eq('issue_id', issueId)
+            .eq('parent_party_id', statePartyId)
             .eq('location_scope', 'district')
+            .eq('is_founding_group', true)
             .eq('state_name', normalizedState)
             .eq('district_name', normalizedDistrict)
             .order('created_at', { ascending: true })
@@ -201,7 +215,9 @@ async function ensureFoundingGroupsForUserLocation({
                 .from('parties')
                 .select('id')
                 .eq('issue_id', issueId)
+                .eq('parent_party_id', statePartyId)
                 .eq('location_scope', 'district')
+                .eq('is_founding_group', true)
                 .eq('state_name', normalizedState)
                 .eq('location_label', normalizedDistrict)
                 .order('created_at', { ascending: true })
@@ -219,7 +235,9 @@ async function ensureFoundingGroupsForUserLocation({
         .from('parties')
         .select('id')
         .eq('issue_id', issueId)
+        .eq('parent_party_id', districtPartyId)
         .eq('location_scope', 'village')
+        .eq('is_founding_group', true)
         .eq('state_name', normalizedState)
         .eq('district_name', normalizedDistrict)
         .eq('village_name', normalizedVillage)
@@ -232,7 +250,9 @@ async function ensureFoundingGroupsForUserLocation({
             .from('parties')
             .select('id')
             .eq('issue_id', issueId)
+            .eq('parent_party_id', districtPartyId)
             .eq('location_scope', 'village')
+            .eq('is_founding_group', true)
             .eq('state_name', normalizedState)
             .eq('district_name', normalizedDistrict)
             .eq('location_label', normalizedVillage)
@@ -434,7 +454,7 @@ export default async function IssueDetailPage({ params, searchParams }: Props) {
             // Primary path: district is child of state.
             if (stateIds.has(parentId)) return true;
 
-            // Backward compatibility: district directly under national.
+            // Also include district groups directly attached under national.
             return parentId === ng.id;
         });
         const districtIds = new Set(districtChildrenRaw.map((child) => child.id));
@@ -447,7 +467,7 @@ export default async function IssueDetailPage({ params, searchParams }: Props) {
             // Primary path: village is child of district.
             if (districtIds.has(parentId)) return true;
 
-            // Backward compatibility for older structures.
+            // Also include villages directly under state or national.
             return stateIds.has(parentId) || parentId === ng.id;
         });
 

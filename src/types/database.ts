@@ -42,7 +42,7 @@ export function isValidHierarchyScopeTransition(
 ): boolean {
   if (!parentScope || !childScope) return false;
 
-  // Legacy chain compatibility: exact one-level transition.
+  // Adjacent hierarchy transition.
   const parentRank = getLocationScopeRank(parentScope);
   const childRank = getLocationScopeRank(childScope);
   if (childRank === parentRank + 1) return true;
@@ -204,9 +204,6 @@ export type AllianceMemberWithParty = AllianceMember & {
 export type AllianceWithMembers = Alliance & {
   members: AllianceMemberWithParty[];
 };
-
-// Legacy type alias for compatibility
-export type AllianceWithParties = AllianceWithMembers;
 
 export type SupportType = 'explicit' | 'implicit';
 export type TargetType = 'issue' | 'question';

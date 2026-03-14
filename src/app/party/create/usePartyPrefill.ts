@@ -115,7 +115,7 @@ export function usePartyPrefill({
         const childDefaultScope = getChildDefaultScope(parentParty.location_scope);
         onSetLocationScope(childDefaultScope);
         if (childDefaultScope === 'district' && (parentParty.location_scope || 'district') === 'district') {
-            // Same-level district (legacy): carry both state + district forward
+            // Same-level district: carry both state + district forward.
             onSetStateName(parentParty.state_name || '');
             onSetDistrictName(parentParty.district_name || '');
         } else if (childDefaultScope === 'district' && (parentParty.location_scope || 'district') === 'state') {

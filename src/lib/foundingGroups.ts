@@ -1,6 +1,6 @@
 import type { Party } from '@/types/database';
 
-export const LEGACY_FOUNDING_GROUP_NAME = 'Founding group';
+export const FOUNDING_GROUP_NAME = 'Founding group';
 
 type FoundingGroupNameOptions = {
     issueText: string | null | undefined;
@@ -18,10 +18,6 @@ type PartyDisplayNameOptions = FoundingGroupNameOptions & {
     isFoundingGroup?: boolean | null;
 };
 
-export function isLegacyFoundingGroupName(value: string | null | undefined): boolean {
-    return (value || '').trim().toLowerCase() === LEGACY_FOUNDING_GROUP_NAME.toLowerCase();
-}
-
 export function buildFoundingGroupName({
     issueText,
     locationScope,
@@ -32,27 +28,26 @@ export function buildFoundingGroupName({
     panchayatName,
     villageName,
 }: FoundingGroupNameOptions): string {
+    void locationLabel;
+    void blockName;
+    void panchayatName;
+
     const normalizedIssueText = (issueText || '').trim();
-    if (!normalizedIssueText) return LEGACY_FOUNDING_GROUP_NAME;
+    const issueFragment = normalizedIssueText ? ` ${normalizedIssueText}` : '';
 
-    const baseFoundingName = `${LEGACY_FOUNDING_GROUP_NAME} ${normalizedIssueText}`;
-
-    const normalizedScope = locationScope || 'national';
-    if (normalizedScope === 'national') {
-        return baseFoundingName;
+    if (locationScope === 'state' && stateName) {
+        return `${FOUNDING_GROUP_NAME} ${stateName}${issueFragment}`;
+    }
+    if (locationScope === 'district' && districtName) {
+        return `${FOUNDING_GROUP_NAME} ${districtName}${issueFragment}`;
+    }
+    if (locationScope === 'village' && villageName) {
+        return `${FOUNDING_GROUP_NAME} ${villageName}${issueFragment}`;
     }
 
-    const qualifier = getFoundingGroupQualifier({
-        locationScope: normalizedScope,
-        locationLabel,
-        stateName,
-        districtName,
-        blockName,
-        panchayatName,
-        villageName,
-    });
-
-    return qualifier ? `${qualifier} ${baseFoundingName}` : baseFoundingName;
+    // National or unknown scope
+    if (!normalizedIssueText) return FOUNDING_GROUP_NAME;
+    return `${FOUNDING_GROUP_NAME} ${normalizedIssueText}`;
 }
 
 export function resolvePartyDisplayName({
@@ -67,44 +62,9 @@ export function resolvePartyDisplayName({
     panchayatName,
     villageName,
 }: PartyDisplayNameOptions): string {
+    void isFoundingGroup;
     const normalizedPartyName = (partyName || '').trim();
 
-    // If the stored name is the legacy placeholder, always resolve it via issue text,
-    // regardless of the is_founding_group flag (some older rows have flag=false but legacy name).
-    if (isLegacyFoundingGroupName(normalizedPartyName)) {
-        return buildFoundingGroupName({ issueText, locationScope, locationLabel, stateName, districtName, blockName, panchayatName, villageName });
-    }
-
-    if (!isFoundingGroup) {
-        return normalizedPartyName || buildFoundingGroupName({ issueText, locationScope, locationLabel, stateName, districtName, blockName, panchayatName, villageName });
-    }
-
-    return normalizedPartyName || buildFoundingGroupName({
-        issueText,
-        locationScope,
-        locationLabel,
-        stateName,
-        districtName,
-        blockName,
-        panchayatName,
-        villageName,
-    });
-}
-
-
-function getFoundingGroupQualifier({
-    locationScope,
-    locationLabel,
-    stateName,
-    districtName,
-    blockName,
-    panchayatName,
-    villageName,
-}: Omit<FoundingGroupNameOptions, 'issueText'>): string {
-    if (locationScope === 'state') return (stateName || locationLabel || '').trim();
-    if (locationScope === 'district') return (districtName || locationLabel || '').trim();
-    if (locationScope === 'block') return (blockName || locationLabel || '').trim();
-    if (locationScope === 'panchayat') return (panchayatName || locationLabel || '').trim();
-    if (locationScope === 'village') return (villageName || locationLabel || '').trim();
-    return (locationLabel || '').trim();
+    if (normalizedPartyName) return normalizedPartyName;
+    return buildFoundingGroupName({ issueText, locationScope, locationLabel, stateName, districtName, blockName, panchayatName, villageName });
 }

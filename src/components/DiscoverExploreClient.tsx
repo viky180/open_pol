@@ -54,8 +54,6 @@ function buildScopeOptions(location: {
 } | null): Array<{ value: ExploreScope; label: string }> {
     return [
         { value: 'village', label: location?.village || location?.locality ? `Village or locality: ${location?.village || location?.locality}` : 'Village or locality' },
-        { value: 'ward', label: location?.ward || location?.panchayat ? `Ward or panchayat: ${location?.ward || location?.panchayat}` : 'Ward or panchayat' },
-        { value: 'block', label: location?.block || location?.corporation ? `Block or corporation: ${location?.block || location?.corporation}` : 'Block or corporation' },
         { value: 'district', label: location?.district ? `District: ${location.district}` : 'District' },
         { value: 'state', label: location?.state ? `State: ${location.state}` : 'State' },
         { value: 'india', label: 'India' },
@@ -73,8 +71,6 @@ function getNearestScope(location: {
     locality?: string | null;
 } | null): ExploreScope {
     if (location?.village || location?.locality) return 'village';
-    if (location?.ward || location?.panchayat) return 'ward';
-    if (location?.block || location?.corporation) return 'block';
     if (location?.district) return 'district';
     if (location?.state) return 'state';
     return 'india';
@@ -102,7 +98,16 @@ function getLevelBadge(item: DiscoverGroupItem): string {
     return 'National level';
 }
 
-function matchesIssue(item: DiscoverGroupItem, issue: string): boolean {
+function resolveSelectedIssueLabel(categoryId: string, categories: Category[]): string {
+    if (!categoryId) return 'All';
+    return categories.find((category) => category.id === categoryId)?.name || 'All';
+}
+
+function matchesIssue(item: DiscoverGroupItem, issue: string, selectedCategoryId: string): boolean {
+    if (selectedCategoryId) {
+        return item.party.category_id === selectedCategoryId;
+    }
+
     if (!issue || issue === 'All') return true;
     const issueText = item.party.issue_text.toLowerCase();
     const parent = (item.parentName || '').toLowerCase();
@@ -151,7 +156,7 @@ export function DiscoverExploreClient({
     const [searchQuery, setSearchQuery] = useState(initialQuery);
     const [selectedCategoryId, setSelectedCategoryId] = useState(initialSelectedCategory);
     const [selectedScope, setSelectedScope] = useState<ExploreScope>(initialSelectedScope);
-    const [selectedIssue, setSelectedIssue] = useState<string>('All');
+    const [selectedIssue, setSelectedIssue] = useState<string>(() => resolveSelectedIssueLabel(initialSelectedCategory, categories));
     const [showMoreIssues, setShowMoreIssues] = useState(false);
 
     const [groups, setGroups] = useState(initialGroups);
@@ -162,6 +167,7 @@ export function DiscoverExploreClient({
     const [membershipPartyId, setMembershipPartyId] = useState<string | null>(activeMembershipPartyId);
     const [joiningIds, setJoiningIds] = useState<Set<string>>(new Set());
     const [likingIds, setLikingIds] = useState<Set<string>>(new Set());
+    const [justJoinedPartyId, setJustJoinedPartyId] = useState<string | null>(null);
 
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [loadingExpandedIds, setLoadingExpandedIds] = useState<Set<string>>(new Set());
@@ -180,7 +186,8 @@ export function DiscoverExploreClient({
         setSearchQuery(initialQuery);
         setSelectedCategoryId(initialSelectedCategory);
         setSelectedScope(initialSelectedScope);
-    }, [initialQuery, initialSelectedCategory, initialSelectedScope]);
+        setSelectedIssue(resolveSelectedIssueLabel(initialSelectedCategory, categories));
+    }, [initialQuery, initialSelectedCategory, initialSelectedScope, categories]);
 
     const scopeOptions = useMemo(() => buildScopeOptions(userLocation), [userLocation]);
 
@@ -256,8 +263,8 @@ export function DiscoverExploreClient({
     };
 
     const visibleGroups = useMemo(
-        () => groups.filter((item) => matchesIssue(item, selectedIssue)),
-        [groups, selectedIssue],
+        () => groups.filter((item) => matchesIssue(item, selectedIssue, selectedCategoryId)),
+        [groups, selectedIssue, selectedCategoryId],
     );
 
     const handleLoadMore = async () => {
@@ -376,7 +383,17 @@ export function DiscoverExploreClient({
         try {
             const response = await fetch(`/api/parties/${item.party.id}/join`, { method: 'POST' });
             if (!response.ok) return;
+            const payload = await response.json().catch(() => ({}));
+            if (payload?.autoProvision && typeof window !== 'undefined') {
+                try {
+                    window.sessionStorage.setItem(
+                        'openpolitics:auto-provision-notice',
+                        JSON.stringify({ targetPartyId: item.party.id, ...payload.autoProvision, createdAt: Date.now() }),
+                    );
+                } catch { /* best effort */ }
+            }
             setMembershipPartyId(item.party.id);
+            setJustJoinedPartyId(item.party.id);
             setGroups((prev) => prev.map((group) => ({
                 ...group,
                 joinedByMe: group.party.id === item.party.id,
@@ -610,16 +627,33 @@ export function DiscoverExploreClient({
 
                                         <p className="mt-4 text-sm text-text-secondary">{getCardRepresentationSummary(item)}</p>
 
+                                        {justJoinedPartyId === item.party.id && (
+                                            <div className="mt-4 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm animate-fade-in">
+                                                <p className="font-semibold text-accent">Joined! Now elect a leader.</p>
+                                                <p className="mt-1 text-text-secondary text-xs">Cast your trust vote so this group has a representative at the {getLevelBadge(item).toLowerCase()} level.</p>
+                                                <div className="mt-3 flex flex-wrap gap-2">
+                                                    <Link href={`/party/${item.party.id}?action=vote`} className="btn btn-primary btn-sm">
+                                                        Cast trust vote
+                                                    </Link>
+                                                    <Link href={`/party/${item.party.id}`} className="btn btn-secondary btn-sm">
+                                                        View group
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    disabled={joinDisabled || joined || joiningIds.has(item.party.id)}
-                                                    onClick={() => handleJoin(item)}
-                                                    className="btn btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-50"
-                                                >
-                                                    {joined ? 'Open group' : joiningIds.has(item.party.id) ? 'Joining...' : 'Join group'}
-                                                </button>
+                                                {justJoinedPartyId !== item.party.id && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={joinDisabled || joined || joiningIds.has(item.party.id)}
+                                                        onClick={() => handleJoin(item)}
+                                                        className="btn btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {joined ? 'Open group' : joiningIds.has(item.party.id) ? 'Joining...' : 'Join group'}
+                                                    </button>
+                                                )}
                                                 <button
                                                     type="button"
                                                     disabled={likingIds.has(item.party.id)}

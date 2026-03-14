@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getOnboardingStatus } from '@/lib/onboarding';
+import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { LandingHero } from '@/components/LandingHero';
 import { LandingValueSection } from '@/components/LandingValueSection';
@@ -18,13 +20,13 @@ type DashboardGroup = {
   memberCount: number;
   category: string;
   joinedAt: string;
-  lastActivityAt: string;
   lastActivityPreview: string;
+  locationScope: string | null;
 };
 
 type DashboardActionItem = {
   id: string;
-  type: 'trust_expiring' | 'nomination_open';
+  type: 'trust_expiring';
   label: string;
   urgency: 'high' | 'medium' | 'low';
   linkUrl: string;
@@ -116,6 +118,33 @@ function getTotalLocations(locationData: LocationRow[] | null): number {
   return allLocations.size;
 }
 
+const getCachedGlobalStats = unstable_cache(
+  async () => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return { totalGroups: 0, totalMembers: 0, totalLocations: 0 };
+    
+    const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
+    const [{ count: totalGroups }, { count: totalMembers }, { data: locationData }] = await Promise.all([
+      supabase.from('parties').select('*', { count: 'exact', head: true }),
+      supabase.from('memberships').select('*', { count: 'exact', head: true }).is('left_at', null),
+      supabase
+        .from('parties')
+        .select('location_scope, location_label, state_name, district_name, block_name, panchayat_name, village_name, pincodes'),
+    ]);
+    
+    const totalLocations = getTotalLocations((locationData as LocationRow[] | null) || null);
+    
+    return {
+      totalGroups: totalGroups || 0,
+      totalMembers: totalMembers || 0,
+      totalLocations
+    };
+  },
+  ['homepage-global-stats'],
+  { revalidate: 3600 } // Cache for 1 hour
+);
+
 function toGroupPreviewItems(
   featuredGroups:
     | Array<{
@@ -161,12 +190,38 @@ function getMomentumItems(dashboard: DashboardData) {
 export default async function HomePage() {
   const supabase = await createClient();
 
+  const globalStatsPromise = getCachedGlobalStats();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const isGuest = !user;
   const firstName = getFirstName(user);
-  const onboardingStatus = user ? await getOnboardingStatus({
+
+  if (isGuest) {
+    const featuredGroupsPromise = supabase
+      .from('parties_with_member_counts')
+      .select('id, issue_text, member_count, category_id, categories(name)')
+      .order('member_count', { ascending: false })
+      .limit(4);
+
+    const [
+      { totalGroups, totalMembers, totalLocations },
+      { data: featuredGroups }
+    ] = await Promise.all([globalStatsPromise, featuredGroupsPromise]);
+
+    const groupPreviewItems = toGroupPreviewItems(featuredGroups);
+
+    return (
+      <div className="min-h-screen">
+        <LandingHero totalGroups={totalGroups || 0} totalMembers={totalMembers || 0} totalLocations={totalLocations} />
+        <LandingValueSection />
+        <GroupPreview groups={groupPreviewItems} />
+      </div>
+    );
+  }
+
+  const onboardingStatusPromise = getOnboardingStatus({
     getProfile: async () => {
       const { data } = await supabase
         .from('profiles')
@@ -183,37 +238,19 @@ export default async function HomePage() {
         .is('left_at', null);
       return count;
     },
-  }) : null;
+  });
 
-  const [{ count: totalGroups }, { count: totalMembers }, { data: locationData }] = await Promise.all([
-    supabase.from('parties').select('*', { count: 'exact', head: true }),
-    supabase.from('memberships').select('*', { count: 'exact', head: true }).is('left_at', null),
-    supabase
-      .from('parties')
-      .select('location_scope, location_label, state_name, district_name, block_name, panchayat_name, village_name, pincodes'),
+  const dashboardPromise = getHomeDashboard();
+
+  const [
+    { totalGroups, totalMembers, totalLocations },
+    onboardingStatus,
+    dashboardRes
+  ] = await Promise.all([
+    globalStatsPromise,
+    onboardingStatusPromise,
+    dashboardPromise
   ]);
-
-  const totalLocations = getTotalLocations((locationData as LocationRow[] | null) || null);
-
-  if (isGuest) {
-    const { data: featuredGroups } = await supabase
-      .from('parties_with_member_counts')
-      .select('id, issue_text, member_count, category_id, categories(name)')
-      .order('member_count', { ascending: false })
-      .limit(4);
-
-    const groupPreviewItems = toGroupPreviewItems(featuredGroups);
-
-    return (
-      <div className="min-h-screen">
-        <LandingHero totalGroups={totalGroups || 0} totalMembers={totalMembers || 0} totalLocations={totalLocations} />
-        <LandingValueSection />
-        <GroupPreview groups={groupPreviewItems} />
-      </div>
-    );
-  }
-
-  const dashboardRes = await getHomeDashboard();
 
   let dashboard: DashboardData = { ...DEFAULT_DASHBOARD };
 
@@ -241,7 +278,7 @@ export default async function HomePage() {
   const heroSupportText = shouldResumeOnboarding
     ? onboardingStatus?.nextStep === 'profile'
       ? 'Finish your setup in one place so people can recognize you and you can find the right cause-based group faster.'
-      : 'You are one step away from activation. Choose a cause, join your first group, and start building local momentum.'
+      : 'Almost there. Choose a cause, join your first group, and start building local momentum.'
     : primaryGroup && topTrend
       ? `${primaryGroup.name} is active, and ${topTrend.issueText} is currently the strongest support signal in ${scopeLabel}.`
       : primaryGroup

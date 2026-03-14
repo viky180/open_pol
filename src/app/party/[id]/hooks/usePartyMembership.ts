@@ -63,48 +63,50 @@ interface UsePartyMembershipParams {
     partyId: string;
     currentUserId: string | null;
     isMember: boolean;
-    activeMembershipPartyId: string | null;
+    /** Party ID of an existing membership at the same scope level (if any). */
+    sameScopeConflictPartyId: string | null;
     memberSince: string | null;
     singleMembershipHint: string;
     onStatusMessage: (tone: MembershipStatusTone, text: string) => void;
+    onJoinSuccess?: (autoProvision: AutoProvisionPayload) => void;
 }
 
 export function usePartyMembership({
     partyId,
     currentUserId,
     isMember,
-    activeMembershipPartyId,
+    sameScopeConflictPartyId,
     memberSince,
     singleMembershipHint,
     onStatusMessage,
+    onJoinSuccess,
 }: UsePartyMembershipParams) {
     const supabase = createClient();
     const [joinLoading, setJoinLoading] = useState(false);
     const [optimisticIsMember, setOptimisticIsMember] = useState(isMember);
-    const [optimisticActiveMembershipPartyId, setOptimisticActiveMembershipPartyId] = useState(activeMembershipPartyId);
+    const [optimisticSameScopeConflictPartyId, setOptimisticSameScopeConflictPartyId] = useState(sameScopeConflictPartyId);
     const [optimisticMemberSince, setOptimisticMemberSince] = useState(memberSince);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
 
     useEffect(() => {
         setOptimisticIsMember(isMember);
-        setOptimisticActiveMembershipPartyId(activeMembershipPartyId);
+        setOptimisticSameScopeConflictPartyId(sameScopeConflictPartyId);
         setOptimisticMemberSince(memberSince);
-    }, [isMember, activeMembershipPartyId, memberSince, partyId]);
+    }, [isMember, sameScopeConflictPartyId, memberSince, partyId]);
 
-    const hasMembershipElsewhere = !!optimisticActiveMembershipPartyId && optimisticActiveMembershipPartyId !== partyId;
+    // Blocked only when there is a SAME-SCOPE conflict — users can join one group per scope level independently.
+    const hasMembershipElsewhere = !!optimisticSameScopeConflictPartyId;
     const joinDisabled = joinLoading || hasMembershipElsewhere;
     const joinButtonLabel = hasMembershipElsewhere ? 'One group only' : (joinLoading ? 'Joining...' : 'Join this group');
 
     const performJoin = async () => {
-        const previousMembershipState = {
-            isMember: optimisticIsMember,
-            activeMembershipPartyId: optimisticActiveMembershipPartyId,
-            memberSince: optimisticMemberSince,
-        };
+        const previousSameScopeConflict = optimisticSameScopeConflictPartyId;
+        const previousMemberSince = optimisticMemberSince;
 
         setOptimisticIsMember(true);
-        setOptimisticActiveMembershipPartyId(partyId);
+        // After joining this group there is no longer a same-scope conflict for THIS group.
+        setOptimisticSameScopeConflictPartyId(null);
         setOptimisticMemberSince(new Date().toISOString());
 
         setJoinLoading(true);
@@ -124,11 +126,13 @@ export function usePartyMembership({
             if (localPathMessage) {
                 onStatusMessage('success', localPathMessage);
             }
+
+            onJoinSuccess?.(payload?.autoProvision ?? null);
         } catch (err) {
             console.error('Join error:', err);
-            setOptimisticIsMember(previousMembershipState.isMember);
-            setOptimisticActiveMembershipPartyId(previousMembershipState.activeMembershipPartyId);
-            setOptimisticMemberSince(previousMembershipState.memberSince);
+            setOptimisticIsMember(isMember);
+            setOptimisticSameScopeConflictPartyId(previousSameScopeConflict);
+            setOptimisticMemberSince(previousMemberSince);
             onStatusMessage('error', err instanceof Error ? err.message : 'Could not join this group');
         } finally {
             setJoinLoading(false);
@@ -152,14 +156,9 @@ export function usePartyMembership({
     const handleLeave = async () => {
         if (!currentUserId) return;
 
-        const previousMembershipState = {
-            isMember: optimisticIsMember,
-            activeMembershipPartyId: optimisticActiveMembershipPartyId,
-            memberSince: optimisticMemberSince,
-        };
+        const previousMemberSince = optimisticMemberSince;
 
         setOptimisticIsMember(false);
-        setOptimisticActiveMembershipPartyId(null);
         setOptimisticMemberSince(null);
         setJoinLoading(true);
         try {
@@ -182,9 +181,8 @@ export function usePartyMembership({
             setShowLeaveModal(false);
         } catch (err) {
             console.error('Leave error:', err);
-            setOptimisticIsMember(previousMembershipState.isMember);
-            setOptimisticActiveMembershipPartyId(previousMembershipState.activeMembershipPartyId);
-            setOptimisticMemberSince(previousMembershipState.memberSince);
+            setOptimisticIsMember(isMember);
+            setOptimisticMemberSince(previousMemberSince);
             onStatusMessage('error', 'Could not leave this group. Please try again.');
         } finally {
             setJoinLoading(false);

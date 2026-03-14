@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     if (sort === 'recent') {
         dataQuery = dataQuery.order('created_at', { ascending: false });
     } else {
-        // Keep legacy default ordering for callers that don't pass sort.
+        // Default ordering for callers that don't pass sort.
         dataQuery = dataQuery
             .order('member_count', { ascending: false })
             .order('created_at', { ascending: false });

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { getCookieValueFromRequestLike, getEffectiveUserContext } from '@/lib/effectiveUser';
+import { buildFoundingGroupName } from '@/lib/foundingGroups';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -11,169 +13,303 @@ type MembershipPartyRelation = {
     location_scope: string | null;
 };
 
-type EnsureLocalGroupInput = {
-    scope: 'state' | 'district' | 'village';
-    issueId: string;
-    issueText: string;
-    categoryId: string | null;
-    createdBy: string;
-    stateName: string | null;
-    districtName: string | null;
-    villageName: string | null;
-    parentPartyId: string;
+type SubNationalScope = 'state' | 'district' | 'village';
+
+type AutoProvisionPayload = {
+    created: Array<{ scope: SubNationalScope; party_id: string }>;
+    reused: Array<{ scope: SubNationalScope; party_id: string }>;
+    skipped: Array<{ scope: SubNationalScope; reason: string }>;
 };
 
-async function ensureDefaultLocalGroup(
-    supabase: Awaited<ReturnType<typeof createClient>>,
-    input: EnsureLocalGroupInput
-): Promise<{ partyId: string; created: boolean }> {
-    const {
-        scope,
-        issueId,
-        issueText,
-        categoryId,
-        createdBy,
-        stateName,
-        districtName,
-        villageName,
-        parentPartyId,
-    } = input;
+type NationalPartyForProvision = {
+    id: string;
+    issue_id: string;
+    issue_text: string | null;
+    category_id: string | null;
+};
 
-    let query = supabase
-        .from('parties')
-        .select('id')
-        .eq('issue_id', issueId)
-        .eq('location_scope', scope)
-        .eq('parent_party_id', parentPartyId)
-        .eq('issue_text', issueText)
-        .limit(1);
-
-    if (stateName) query = query.eq('state_name', stateName);
-    if (districtName) query = query.eq('district_name', districtName);
-    if (villageName) query = query.eq('village_name', villageName);
-
-    const { data: existing } = await query.maybeSingle();
-    if (existing?.id) {
-        return { partyId: existing.id, created: false };
-    }
-
-    const locationLabel =
-        scope === 'state'
-            ? stateName
-            : scope === 'district'
-                ? districtName
-                : villageName;
-
-    const { data: createdParty, error: createError } = await supabase
-        .from('parties')
-        .insert({
-            issue_text: issueText,
-            pincodes: [],
-            created_by: createdBy,
-            category_id: categoryId,
-            parent_party_id: parentPartyId,
-            issue_id: issueId,
-            node_type: 'group',
-            location_scope: scope,
-            location_label: locationLabel || null,
-            state_name: stateName,
-            district_name: districtName,
-            village_name: villageName,
-        })
-        .select('id')
-        .single();
-
-    if (createError || !createdParty) {
-        throw new Error(createError?.message || `Failed creating ${scope} group`);
-    }
-
-    return { partyId: createdParty.id, created: true };
-}
-
-async function ensureLocalLeadershipPathAfterNationalJoin(
-    supabase: Awaited<ReturnType<typeof createClient>>,
-    params: {
-        userId: string;
-        nationalPartyId: string;
-        issueId: string;
-        issueText: string;
-        categoryId: string | null;
-    }
-) {
-    const { userId, nationalPartyId, issueId, issueText, categoryId } = params;
+async function provisionLocalFoundingGroupsForUser({
+    supabase,
+    effectiveUserId,
+    nationalParty,
+}: {
+    supabase: Awaited<ReturnType<typeof createClient>>;
+    effectiveUserId: string;
+    nationalParty: NationalPartyForProvision;
+}): Promise<AutoProvisionPayload> {
+    const result: AutoProvisionPayload = {
+        created: [],
+        reused: [],
+        skipped: [],
+    };
 
     const { data: profile } = await supabase
         .from('profiles')
-        .select('state, district, village')
-        .eq('id', userId)
+        .select('state, area_type, city, corporation, district, ward, locality, village')
+        .eq('id', effectiveUserId)
         .maybeSingle();
 
-    const stateName = profile?.state?.trim() || null;
-    const districtName = profile?.district?.trim() || null;
-    const villageName = profile?.village?.trim() || null;
+    const userState = profile?.state?.trim() || null;
+    const isUrban = profile?.area_type === 'urban';
+    const userDistrict = isUrban
+        ? (profile?.city?.trim() || profile?.corporation?.trim() || null)
+        : (profile?.district?.trim() || null);
+    const userVillage = isUrban
+        ? (profile?.ward?.trim() || profile?.locality?.trim() || null)
+        : (profile?.village?.trim() || null);
 
-    const created: Array<{ scope: 'state' | 'district' | 'village'; party_id: string }> = [];
-    const reused: Array<{ scope: 'state' | 'district' | 'village'; party_id: string }> = [];
-    const skipped: Array<{ scope: 'state' | 'district' | 'village'; reason: string }> = [];
+    const adminSupabase = createAdminClient();
 
-    if (!stateName) {
-        skipped.push({ scope: 'state', reason: 'missing_state' });
-        skipped.push({ scope: 'district', reason: 'missing_state' });
-        skipped.push({ scope: 'village', reason: 'missing_state' });
-        return { created, reused, skipped };
-    }
+    const ensureStateFoundingGroup = async (): Promise<string | null> => {
+        if (!userState) {
+            result.skipped.push({ scope: 'state', reason: 'missing_location' });
+            return null;
+        }
 
-    const stateResult = await ensureDefaultLocalGroup(supabase, {
-        scope: 'state',
-        issueId,
-        issueText,
-        categoryId,
-        createdBy: userId,
-        stateName,
-        districtName: null,
-        villageName: null,
-        parentPartyId: nationalPartyId,
-    });
-    (stateResult.created ? created : reused).push({ scope: 'state', party_id: stateResult.partyId });
+        const { data: existing } = await supabase
+            .from('parties')
+            .select('id')
+            .eq('issue_id', nationalParty.issue_id)
+            .eq('parent_party_id', nationalParty.id)
+            .eq('location_scope', 'state')
+            .eq('is_founding_group', true)
+            .ilike('state_name', userState)
+            .maybeSingle();
 
-    if (!districtName) {
-        skipped.push({ scope: 'district', reason: 'missing_district' });
-        skipped.push({ scope: 'village', reason: 'missing_district' });
-        return { created, reused, skipped };
-    }
+        if (existing) {
+            result.reused.push({ scope: 'state', party_id: existing.id });
+            return existing.id;
+        }
 
-    const districtResult = await ensureDefaultLocalGroup(supabase, {
-        scope: 'district',
-        issueId,
-        issueText,
-        categoryId,
-        createdBy: userId,
-        stateName,
-        districtName,
-        villageName: null,
-        parentPartyId: stateResult.partyId,
-    });
-    (districtResult.created ? created : reused).push({ scope: 'district', party_id: districtResult.partyId });
+        const { data: createdState, error } = await adminSupabase
+            .from('parties')
+            .insert({
+                issue_text: buildFoundingGroupName({
+                    issueText: nationalParty.issue_text,
+                    locationScope: 'state',
+                    stateName: userState,
+                }),
+                pincodes: [] as string[],
+                is_founding_group: true,
+                issue_id: nationalParty.issue_id,
+                category_id: nationalParty.category_id,
+                parent_party_id: nationalParty.id,
+                node_type: 'group' as const,
+                location_scope: 'state' as const,
+                location_label: userState,
+                state_name: userState,
+                district_name: null,
+                village_name: null,
+                created_by: null as string | null,
+            })
+            .select('id')
+            .single();
 
-    if (!villageName) {
-        skipped.push({ scope: 'village', reason: 'missing_village' });
-        return { created, reused, skipped };
-    }
+        if (error) {
+            if (error.code === '23505') {
+                const { data: raced } = await supabase
+                    .from('parties')
+                    .select('id')
+                    .eq('issue_id', nationalParty.issue_id)
+                    .eq('parent_party_id', nationalParty.id)
+                    .eq('location_scope', 'state')
+                    .eq('is_founding_group', true)
+                    .ilike('state_name', userState)
+                    .maybeSingle();
 
-    const villageResult = await ensureDefaultLocalGroup(supabase, {
-        scope: 'village',
-        issueId,
-        issueText,
-        categoryId,
-        createdBy: userId,
-        stateName,
-        districtName,
-        villageName,
-        parentPartyId: districtResult.partyId,
-    });
-    (villageResult.created ? created : reused).push({ scope: 'village', party_id: villageResult.partyId });
+                if (raced) {
+                    result.reused.push({ scope: 'state', party_id: raced.id });
+                    return raced.id;
+                }
+            }
 
-    return { created, reused, skipped };
+            result.skipped.push({ scope: 'state', reason: 'creation_failed' });
+            return null;
+        }
+
+        if (createdState) {
+            result.created.push({ scope: 'state', party_id: createdState.id });
+            return createdState.id;
+        }
+
+        result.skipped.push({ scope: 'state', reason: 'creation_failed' });
+        return null;
+    };
+
+    const ensureDistrictFoundingGroup = async (statePartyId: string | null): Promise<string | null> => {
+        if (!userState || !userDistrict) {
+            result.skipped.push({ scope: 'district', reason: 'missing_location' });
+            return null;
+        }
+        if (!statePartyId) {
+            result.skipped.push({ scope: 'district', reason: 'missing_parent' });
+            return null;
+        }
+
+        const { data: existing } = await supabase
+            .from('parties')
+            .select('id')
+            .eq('issue_id', nationalParty.issue_id)
+            .eq('parent_party_id', statePartyId)
+            .eq('location_scope', 'district')
+            .eq('is_founding_group', true)
+            .ilike('state_name', userState)
+            .ilike('district_name', userDistrict)
+            .maybeSingle();
+
+        if (existing) {
+            result.reused.push({ scope: 'district', party_id: existing.id });
+            return existing.id;
+        }
+
+        const { data: createdDistrict, error } = await adminSupabase
+            .from('parties')
+            .insert({
+                issue_text: buildFoundingGroupName({
+                    issueText: nationalParty.issue_text,
+                    locationScope: 'district',
+                    stateName: userState,
+                    districtName: userDistrict,
+                }),
+                pincodes: [] as string[],
+                is_founding_group: true,
+                issue_id: nationalParty.issue_id,
+                category_id: nationalParty.category_id,
+                parent_party_id: statePartyId,
+                node_type: 'group' as const,
+                location_scope: 'district' as const,
+                location_label: userDistrict,
+                state_name: userState,
+                district_name: userDistrict,
+                village_name: null,
+                created_by: null as string | null,
+            })
+            .select('id')
+            .single();
+
+        if (error) {
+            if (error.code === '23505') {
+                const { data: raced } = await supabase
+                    .from('parties')
+                    .select('id')
+                    .eq('issue_id', nationalParty.issue_id)
+                    .eq('parent_party_id', statePartyId)
+                    .eq('location_scope', 'district')
+                    .eq('is_founding_group', true)
+                    .ilike('state_name', userState)
+                    .ilike('district_name', userDistrict)
+                    .maybeSingle();
+
+                if (raced) {
+                    result.reused.push({ scope: 'district', party_id: raced.id });
+                    return raced.id;
+                }
+            }
+
+            result.skipped.push({ scope: 'district', reason: 'creation_failed' });
+            return null;
+        }
+
+        if (createdDistrict) {
+            result.created.push({ scope: 'district', party_id: createdDistrict.id });
+            return createdDistrict.id;
+        }
+
+        result.skipped.push({ scope: 'district', reason: 'creation_failed' });
+        return null;
+    };
+
+    const ensureVillageFoundingGroup = async (districtPartyId: string | null): Promise<string | null> => {
+        if (!userState || !userDistrict || !userVillage) {
+            result.skipped.push({ scope: 'village', reason: 'missing_location' });
+            return null;
+        }
+        if (!districtPartyId) {
+            result.skipped.push({ scope: 'village', reason: 'missing_parent' });
+            return null;
+        }
+
+        const { data: existing } = await supabase
+            .from('parties')
+            .select('id')
+            .eq('issue_id', nationalParty.issue_id)
+            .eq('parent_party_id', districtPartyId)
+            .eq('location_scope', 'village')
+            .eq('is_founding_group', true)
+            .ilike('state_name', userState)
+            .ilike('district_name', userDistrict)
+            .ilike('village_name', userVillage)
+            .maybeSingle();
+
+        if (existing) {
+            result.reused.push({ scope: 'village', party_id: existing.id });
+            return existing.id;
+        }
+
+        const { data: createdVillage, error } = await adminSupabase
+            .from('parties')
+            .insert({
+                issue_text: buildFoundingGroupName({
+                    issueText: nationalParty.issue_text,
+                    locationScope: 'village',
+                    stateName: userState,
+                    districtName: userDistrict,
+                    villageName: userVillage,
+                }),
+                pincodes: [] as string[],
+                is_founding_group: true,
+                issue_id: nationalParty.issue_id,
+                category_id: nationalParty.category_id,
+                parent_party_id: districtPartyId,
+                node_type: 'group' as const,
+                location_scope: 'village' as const,
+                location_label: userVillage,
+                state_name: userState,
+                district_name: userDistrict,
+                village_name: userVillage,
+                created_by: null as string | null,
+            })
+            .select('id')
+            .single();
+
+        if (error) {
+            if (error.code === '23505') {
+                const { data: raced } = await supabase
+                    .from('parties')
+                    .select('id')
+                    .eq('issue_id', nationalParty.issue_id)
+                    .eq('parent_party_id', districtPartyId)
+                    .eq('location_scope', 'village')
+                    .eq('is_founding_group', true)
+                    .ilike('state_name', userState)
+                    .ilike('district_name', userDistrict)
+                    .ilike('village_name', userVillage)
+                    .maybeSingle();
+
+                if (raced) {
+                    result.reused.push({ scope: 'village', party_id: raced.id });
+                    return raced.id;
+                }
+            }
+
+            result.skipped.push({ scope: 'village', reason: 'creation_failed' });
+            return null;
+        }
+
+        if (createdVillage) {
+            result.created.push({ scope: 'village', party_id: createdVillage.id });
+            return createdVillage.id;
+        }
+
+        result.skipped.push({ scope: 'village', reason: 'creation_failed' });
+        return null;
+    };
+
+    const statePartyId = await ensureStateFoundingGroup();
+    const districtPartyId = await ensureDistrictFoundingGroup(statePartyId);
+    await ensureVillageFoundingGroup(districtPartyId);
+
+    return result;
 }
 
 // POST /api/parties/[id]/join - Join a party
@@ -205,28 +341,54 @@ export async function POST(request: NextRequest, { params }: Props) {
     // Look up the scope and issue_id of the group being joined
     const { data: targetParty } = await supabase
         .from('parties')
-        .select('location_scope, issue_id, issue_text, category_id, state_name, district_name, village_name')
+        .select('location_scope, issue_id, issue_text, category_id, state_name, district_name, village_name, is_founding_group')
         .eq('id', id)
         .maybeSingle();
 
     const targetScope = targetParty?.location_scope ?? null;
     const targetIssueId = targetParty?.issue_id ?? null;
+    const shouldAutoProvisionLocalPath = targetScope === 'national'
+        && !!targetIssueId
+        && !!targetParty?.is_founding_group;
 
-    // ── Constraint 1: one active membership per geographic level ──────────────
-    // A user may join one village group, one district group, etc. independently.
-    if (targetScope) {
+    const maybeAutoProvisionLocalPath = async (): Promise<AutoProvisionPayload | null> => {
+        if (!shouldAutoProvisionLocalPath || !targetParty || !targetParty.issue_id) {
+            return null;
+        }
+
+        try {
+            return await provisionLocalFoundingGroupsForUser({
+                supabase,
+                effectiveUserId,
+                nationalParty: {
+                    id,
+                    issue_id: targetParty.issue_id,
+                    issue_text: targetParty.issue_text ?? null,
+                    category_id: targetParty.category_id ?? null,
+                },
+            });
+        } catch (error) {
+            console.error('Failed to auto-provision local founding groups:', error);
+            return null;
+        }
+    };
+
+    // ── Constraint 1: one active membership per geographic level (within the same national group) ──
+    // A user may join one village group, one district group, etc. per national group independently.
+    if (targetScope && targetIssueId) {
         const { data: sameLevelMembership } = await supabase
             .from('memberships')
-            .select('party_id, parties!inner(location_scope)')
+            .select('party_id, parties!inner(location_scope, issue_id)')
             .eq('user_id', effectiveUserId)
             .is('left_at', null)
             .eq('parties.location_scope', targetScope)
+            .eq('parties.issue_id', targetIssueId)
             .maybeSingle();
 
         if (sameLevelMembership) {
             return NextResponse.json(
                 {
-                    error: `You are already in a ${targetScope}-level group. Leave that group first before joining another at the same level. You can still like groups to show interest.`,
+                    error: `You are already in a ${targetScope}-level group for this national group. Leave that group first before joining another at the same level. You can still like groups to show interest.`,
                 },
                 { status: 400 }
             );
@@ -268,13 +430,18 @@ export async function POST(request: NextRequest, { params }: Props) {
     if (targetScope && SUB_NATIONAL_SCOPES.includes(targetScope)) {
         const { data: userProfile } = await supabase
             .from('profiles')
-            .select('state, district, village')
+            .select('state, area_type, city, corporation, district, ward, locality, village')
             .eq('id', effectiveUserId)
             .maybeSingle();
 
+        const isUrban = userProfile?.area_type === 'urban';
         const userState = userProfile?.state?.trim().toLowerCase() ?? null;
-        const userDistrict = userProfile?.district?.trim().toLowerCase() ?? null;
-        const userVillage = userProfile?.village?.trim().toLowerCase() ?? null;
+        const userDistrict = (isUrban
+            ? (userProfile?.city?.trim() || userProfile?.corporation?.trim() || null)
+            : (userProfile?.district?.trim() || null))?.toLowerCase() ?? null;
+        const userVillage = (isUrban
+            ? (userProfile?.ward?.trim() || userProfile?.locality?.trim() || null)
+            : (userProfile?.village?.trim() || null))?.toLowerCase() ?? null;
 
         const partyState = targetParty?.state_name?.trim().toLowerCase() ?? null;
         const partyDistrict = targetParty?.district_name?.trim().toLowerCase() ?? null;
@@ -298,7 +465,7 @@ export async function POST(request: NextRequest, { params }: Props) {
         if (targetScope === 'district') {
             if (!userState || !userDistrict) {
                 return NextResponse.json(
-                    { error: 'Please set your state and district in your profile before joining a district-level group.' },
+                    { error: 'Please set your state and city/district in your profile before joining a district-level group.' },
                     { status: 400 }
                 );
             }
@@ -313,7 +480,7 @@ export async function POST(request: NextRequest, { params }: Props) {
         if (targetScope === 'village') {
             if (!userState || !userDistrict || !userVillage) {
                 return NextResponse.json(
-                    { error: 'Please set your full location (state, district, and village) in your profile before joining a village-level group.' },
+                    { error: 'Please set your full location (state, city/district, and village/ward) in your profile before joining a village-level group.' },
                     { status: 400 }
                 );
             }
@@ -348,21 +515,7 @@ export async function POST(request: NextRequest, { params }: Props) {
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        let autoProvision: Awaited<ReturnType<typeof ensureLocalLeadershipPathAfterNationalJoin>> | null = null;
-        if (targetScope === 'national' && targetIssueId) {
-            try {
-                autoProvision = await ensureLocalLeadershipPathAfterNationalJoin(supabase, {
-                    userId: effectiveUserId,
-                    nationalPartyId: id,
-                    issueId: targetIssueId,
-                    issueText: targetParty?.issue_text || '',
-                    categoryId: targetParty?.category_id || null,
-                });
-            } catch (provisionError) {
-                console.error('Failed to auto-provision local groups after re-join', provisionError);
-            }
-        }
-
+        const autoProvision = await maybeAutoProvisionLocalPath();
         return NextResponse.json({ ...data, autoProvision }, { status: 200 });
     }
 
@@ -380,20 +533,6 @@ export async function POST(request: NextRequest, { params }: Props) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    let autoProvision: Awaited<ReturnType<typeof ensureLocalLeadershipPathAfterNationalJoin>> | null = null;
-    if (targetScope === 'national' && targetIssueId) {
-        try {
-            autoProvision = await ensureLocalLeadershipPathAfterNationalJoin(supabase, {
-                userId: effectiveUserId,
-                nationalPartyId: id,
-                issueId: targetIssueId,
-                issueText: targetParty?.issue_text || '',
-                categoryId: targetParty?.category_id || null,
-            });
-        } catch (provisionError) {
-            console.error('Failed to auto-provision local groups after join', provisionError);
-        }
-    }
-
+    const autoProvision = await maybeAutoProvisionLocalPath();
     return NextResponse.json({ ...data, autoProvision }, { status: 201 });
 }

@@ -121,7 +121,7 @@ export default async function PartyPage({ params }: Props) {
     // ============================================
     // PARALLEL QUERY GROUP 2: User-specific queries (only if user is logged in)
     // ============================================
-    const [userMembershipResult, activeMembershipResult, userVoteResult, eligibleVoterResult, likedByMeResult] = effectiveUserId
+    const [userMembershipResult, sameScopeConflictResult, userVoteResult, eligibleVoterResult, likedByMeResult] = effectiveUserId
         ? await Promise.all([
             supabase
                 .from('memberships')
@@ -130,12 +130,22 @@ export default async function PartyPage({ params }: Props) {
                 .eq('user_id', effectiveUserId)
                 .is('left_at', null)
                 .maybeSingle(),
-            supabase
-                .from('memberships')
-                .select('party_id')
-                .eq('user_id', effectiveUserId)
-                .is('left_at', null)
-                .maybeSingle(),
+            // Check if user already has a membership at the SAME scope level within the same
+            // national group (same issue_id). Users can join one group per scope per national group.
+            (() => {
+                const base = supabase
+                    .from('memberships')
+                    .select('party_id, parties!inner(location_scope, issue_text)')
+                    .eq('user_id', effectiveUserId)
+                    .is('left_at', null)
+                    .eq('parties.location_scope', party.location_scope || 'district')
+                    .neq('party_id', id)
+                    .limit(1);
+                return (party.issue_id
+                    ? base.eq('parties.issue_id', party.issue_id)
+                    : base
+                ).maybeSingle();
+            })(),
             supabase
                 .from('trust_votes')
                 .select('to_user_id, expires_at')
@@ -159,7 +169,15 @@ export default async function PartyPage({ params }: Props) {
     const trustVotes = trustVotesResult.data;
 
     const userMembership = userMembershipResult.data;
-    const activeMembership = activeMembershipResult.data;
+    const sameScopeConflict = sameScopeConflictResult.data as {
+        party_id: string;
+        parties: { location_scope: string | null; issue_text: string } | { location_scope: string | null; issue_text: string }[] | null;
+    } | null;
+    const sameScopeConflictPartyId = sameScopeConflict?.party_id || null;
+    const sameScopeConflictPartyRelation = Array.isArray(sameScopeConflict?.parties)
+        ? sameScopeConflict?.parties[0]
+        : sameScopeConflict?.parties;
+    const sameScopeConflictIssueText = sameScopeConflictPartyRelation?.issue_text || null;
     const userVote = userVoteResult.data;
     const isEligibleVoter = (eligibleVoterResult.data as boolean) || false;
     const likedByMe = !!likedByMeResult.data;
@@ -220,6 +238,54 @@ export default async function PartyPage({ params }: Props) {
     if (party.parent_party_id) {
         const parentPartyResult = await supabase.from('parties').select('*').eq('id', party.parent_party_id).maybeSingle();
         currentParentParty = parentPartyResult.data || null;
+    }
+
+    // Build full ancestor chain for the hierarchy breadcrumb (walk up to national, max 4 levels)
+    type AncestorNode = {
+        id: string;
+        location_scope: string | null;
+        state_name: string | null;
+        district_name: string | null;
+        village_name: string | null;
+        location_label: string | null;
+        issue_text: string;
+    };
+
+    const ancestorChain: AncestorNode[] = [];
+
+    // Include the current party itself
+    ancestorChain.push({
+        id: party.id,
+        location_scope: party.location_scope ?? null,
+        state_name: party.state_name ?? null,
+        district_name: party.district_name ?? null,
+        village_name: party.village_name ?? null,
+        location_label: party.location_label ?? null,
+        issue_text: party.issue_text,
+    });
+
+    // Walk up the parent chain
+    let cursor: Party | null = currentParentParty;
+    while (cursor && ancestorChain.length < 4) {
+        ancestorChain.push({
+            id: cursor.id,
+            location_scope: cursor.location_scope ?? null,
+            state_name: cursor.state_name ?? null,
+            district_name: cursor.district_name ?? null,
+            village_name: cursor.village_name ?? null,
+            location_label: cursor.location_label ?? null,
+            issue_text: cursor.issue_text,
+        });
+        if (cursor.parent_party_id) {
+            const grandparentResult = await supabase
+                .from('parties')
+                .select('id, location_scope, state_name, district_name, village_name, location_label, issue_text, parent_party_id')
+                .eq('id', cursor.parent_party_id)
+                .maybeSingle();
+            cursor = grandparentResult.data as Party | null;
+        } else {
+            cursor = null;
+        }
     }
 
     const siblingGroups: Array<{ id: string; issue_text: string; icon_svg?: string | null; icon_image_url?: string | null; memberCount: number }> = [];
@@ -540,11 +606,13 @@ export default async function PartyPage({ params }: Props) {
             currentUserId={effectiveUserId}
             isMember={!!userMembership}
             isEligibleVoter={isEligibleVoter}
-            activeMembershipPartyId={activeMembership?.party_id || null}
+            sameScopeConflictPartyId={sameScopeConflictPartyId}
+            sameScopeConflictIssueText={sameScopeConflictIssueText}
             memberSince={userMembership?.joined_at || null}
             votedFor={userVote?.to_user_id || null}
             voteExpiresAt={userVote?.expires_at || null}
             currentParentParty={currentParentParty}
+            ancestorChain={ancestorChain}
             childGroups={childGroupsWithCounts}
             siblingGroups={siblingGroups}
             currentAlliance={currentAlliance}

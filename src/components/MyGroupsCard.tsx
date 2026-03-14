@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { OnboardingStatus } from '@/lib/onboarding';
+import { CREATION_LOCATION_SCOPE_LEVELS } from '@/types/database';
 
 type GroupItem = {
   id: string;
@@ -9,8 +10,8 @@ type GroupItem = {
   memberCount: number;
   category: string;
   joinedAt: string;
-  lastActivityAt: string;
   lastActivityPreview: string;
+  locationScope: string | null;
 };
 
 type Representation = {
@@ -260,8 +261,6 @@ export function MyGroupsCard({
   if (!primaryGroup) return null;
 
   const joinedLabel = getRelativeTimeLabel(primaryGroup.joinedAt);
-  const lastActivity = getRelativeTimeLabel(primaryGroup.lastActivityAt);
-  const otherGroups = groups.filter((group) => group.id !== primaryGroup.id).slice(0, 3);
 
   return (
     <section className="card-glass p-5 sm:p-6">
@@ -298,11 +297,11 @@ export function MyGroupsCard({
                 >
                   {primaryGroup.name}
                 </p>
-                <p className="mt-2 text-sm text-text-secondary">
-                  {actionCount > 0
-                    ? `${actionCount} action${actionCount === 1 ? '' : 's'} need your attention across your civic home. Start with this group.`
-                    : 'No urgent blockers right now. Open your group, catch up on changes, and keep momentum moving.'}
-                </p>
+                {actionCount > 0 && (
+                  <p className="mt-2 text-sm text-text-secondary">
+                    {actionCount} action{actionCount === 1 ? '' : 's'} need your attention across your civic home. Start with this group.
+                  </p>
+                )}
                 <p
                   className="mt-2 text-xs uppercase tracking-[0.18em] text-text-muted"
                   style={{ fontFamily: 'var(--font-mono)' }}
@@ -312,45 +311,10 @@ export function MyGroupsCard({
               </div>
             </div>
           </div>
-          <div className="grid min-w-full grid-cols-2 gap-3 sm:min-w-[260px] lg:max-w-[290px] lg:grid-cols-1">
-            <div
-              className={`rounded-2xl border px-4 py-4 ${actionCount > 0 ? 'border-danger/20 bg-danger/5' : 'border-success/20 bg-success/5'}`}
-            >
-              <div
-                className="text-[11px] uppercase tracking-[0.18em] text-text-muted"
-                style={{ fontFamily: 'var(--font-mono)' }}
-              >
-                What needs attention
-              </div>
-              <div
-                className={`mt-2 text-lg font-semibold ${actionCount > 0 ? 'text-danger' : 'text-success'}`}
-              >
-                {actionCount > 0
-                  ? `${actionCount} action${actionCount === 1 ? '' : 's'} waiting`
-                  : 'No urgent actions'}
-              </div>
-              <p className="mt-2 text-sm text-text-secondary">
-                {actionCount > 0
-                  ? 'Review expiring trust votes and pending actions first.'
-                  : 'Use this time to review momentum and plan your next move.'}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border-primary bg-bg-secondary/75 px-4 py-4">
-              <div
-                className="text-[11px] uppercase tracking-[0.18em] text-text-muted"
-                style={{ fontFamily: 'var(--font-mono)' }}
-              >
-                Last activity
-              </div>
-              <div className="mt-2 text-lg font-semibold text-text-primary">{lastActivity}</div>
-              <p className="mt-2 text-sm text-text-secondary">
-                Most recent update: {primaryGroup.lastActivityPreview || 'No recent update yet.'}
-              </p>
-            </div>
-          </div>
+
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="editorial-subcard">
             <div className="text-lg text-primary" style={{ fontFamily: 'var(--font-display)' }}>
               {primaryGroup.memberCount.toLocaleString('en-IN')}
@@ -373,52 +337,115 @@ export function MyGroupsCard({
               Representative
             </div>
           </div>
-          <div className="editorial-subcard">
-            <div className="text-lg text-primary" style={{ fontFamily: 'var(--font-display)' }}>
-              {groups.length > 1 ? `${groups.length - 1}+` : '0'}
-            </div>
-            <div
-              className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted"
-              style={{ fontFamily: 'var(--font-mono)' }}
-            >
-              Other groups
-            </div>
-          </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-border-primary bg-bg-secondary/70 p-4">
-          <div
-            className="text-[11px] uppercase tracking-[0.2em] text-text-muted"
-            style={{ fontFamily: 'var(--font-mono)' }}
-          >
-            Latest update
-          </div>
-          <p className="mt-2 text-sm text-text-primary">
-            {primaryGroup.lastActivityPreview || 'No recent update yet.'}
-          </p>
-        </div>
-
-        {otherGroups.length > 0 && (
-          <div className="mt-4">
+        {primaryGroup.lastActivityPreview && (
+          <div className="mt-4 rounded-2xl border border-border-primary bg-bg-secondary/70 p-4">
             <div
-              className="text-[11px] uppercase tracking-[0.18em] text-text-muted"
+              className="text-[11px] uppercase tracking-[0.2em] text-text-muted"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
-              Also active in
+              Latest update
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {otherGroups.map((group) => (
-                <Link
-                  key={group.id}
-                  href={`/party/${group.id}`}
-                  className="badge transition hover:border-accent/30 hover:text-accent"
-                >
-                  {group.name}
-                </Link>
-              ))}
-            </div>
+            <p className="mt-2 text-sm text-text-primary">
+              {primaryGroup.lastActivityPreview}
+            </p>
           </div>
         )}
+
+        {representation?.partyId && representation.trustExpiresInDays === null && (
+          <div className="mt-4 rounded-2xl border border-accent/25 bg-accent/[0.06] p-4">
+            <span className="badge border-accent/20 bg-accent/10 text-accent text-[10px]">
+              Action needed
+            </span>
+            <p className="mt-2 text-sm text-text-primary">
+              Cast your trust vote to elect a leader for this group.
+            </p>
+            <p className="mt-1 text-xs text-text-secondary">
+              Your vote decides who speaks for this group — and this group&apos;s leader can represent your level if it grows the most.
+            </p>
+            <Link
+              href={`/party/${representation.partyId}?action=vote`}
+              className="btn btn-primary btn-sm mt-3 inline-block"
+            >
+              Cast trust vote
+            </Link>
+          </div>
+        )}
+
+        {representation?.partyId && representation.trustExpiresInDays !== null && representation.trustExpiresInDays <= 30 && (
+          <div className="mt-4 rounded-2xl border border-warning/25 bg-warning/[0.06] p-4">
+            <span className="badge border-warning/20 bg-warning/10 text-warning text-[10px]">
+              Renew soon
+            </span>
+            <p className="mt-2 text-sm text-text-primary">
+              Your trust vote expires in {representation.trustExpiresInDays} day{representation.trustExpiresInDays === 1 ? '' : 's'}.
+            </p>
+            <Link
+              href={`/party/${representation.partyId}`}
+              className="btn btn-secondary btn-sm mt-3 inline-block"
+            >
+              Renew trust vote
+            </Link>
+          </div>
+        )}
+
+        <div className="mt-4">
+          <div
+            className="text-[11px] uppercase tracking-[0.18em] text-text-muted"
+            style={{ fontFamily: 'var(--font-mono)' }}
+          >
+            Your levels
+          </div>
+          <div className="mt-3 space-y-2">
+            {CREATION_LOCATION_SCOPE_LEVELS.map((level) => {
+              const match = groups.find((g) => g.locationScope === level.value);
+              return (
+                <div
+                  key={level.value}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border-primary bg-bg-secondary/50 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="shrink-0 text-sm" aria-hidden="true">{level.icon}</span>
+                    <span
+                      className="text-[11px] uppercase tracking-[0.14em] text-text-muted shrink-0"
+                      style={{ fontFamily: 'var(--font-mono)' }}
+                    >
+                      {level.label}
+                    </span>
+                    {match ? (
+                      <Link
+                        href={`/party/${match.id}`}
+                        className="truncate text-sm text-text-primary hover:text-accent hover:underline"
+                      >
+                        {match.name}
+                      </Link>
+                    ) : (
+                      <span className="text-sm text-text-muted">—</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {match ? (
+                      <span
+                        className="text-[11px] text-text-muted"
+                        style={{ fontFamily: 'var(--font-mono)' }}
+                      >
+                        {match.memberCount.toLocaleString('en-IN')} members
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/discover?scope=${level.value}`}
+                        className="badge text-[10px] border-accent/20 bg-accent/10 text-accent hover:bg-accent/20 transition"
+                      >
+                        Join
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <Link href={`/party/${primaryGroup.id}`} className="btn btn-primary flex-1">
