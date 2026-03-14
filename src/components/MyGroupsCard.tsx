@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { OnboardingStatus } from '@/lib/onboarding';
 import { CREATION_LOCATION_SCOPE_LEVELS } from '@/types/database';
+import { LocationScopeIcon } from '@/lib/locationIcons';
 
 type GroupItem = {
   id: string;
@@ -365,7 +366,7 @@ export function MyGroupsCard({
               Your vote decides who speaks for this group — and this group&apos;s leader can represent your level if it grows the most.
             </p>
             <Link
-              href={`/party/${representation.partyId}?action=vote`}
+              href={`/group/${representation.partyId}?action=vote`}
               className="btn btn-primary btn-sm mt-3 inline-block"
             >
               Cast trust vote
@@ -382,7 +383,7 @@ export function MyGroupsCard({
               Your trust vote expires in {representation.trustExpiresInDays} day{representation.trustExpiresInDays === 1 ? '' : 's'}.
             </p>
             <Link
-              href={`/party/${representation.partyId}`}
+              href={`/group/${representation.partyId}`}
               className="btn btn-secondary btn-sm mt-3 inline-block"
             >
               Renew trust vote
@@ -406,7 +407,7 @@ export function MyGroupsCard({
                   className="flex items-center justify-between gap-3 rounded-xl border border-border-primary bg-bg-secondary/50 px-3 py-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="shrink-0 text-sm" aria-hidden="true">{level.icon}</span>
+                    <LocationScopeIcon iconName={level.icon} className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span
                       className="text-[11px] uppercase tracking-[0.14em] text-text-muted shrink-0"
                       style={{ fontFamily: 'var(--font-mono)' }}
@@ -415,7 +416,7 @@ export function MyGroupsCard({
                     </span>
                     {match ? (
                       <Link
-                        href={`/party/${match.id}`}
+                        href={`/group/${match.id}`}
                         className="truncate text-sm text-text-primary hover:text-accent hover:underline"
                       >
                         {match.name}
@@ -448,7 +449,7 @@ export function MyGroupsCard({
         </div>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <Link href={`/party/${primaryGroup.id}`} className="btn btn-primary flex-1">
+          <Link href={`/group/${primaryGroup.id}`} className="btn btn-primary flex-1">
             Continue with group
           </Link>
           <Link href="/profile" className="btn btn-secondary flex-1">

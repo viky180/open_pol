@@ -12,12 +12,12 @@ export type Profile = {
 export type LocationScope = 'national' | 'state' | 'district' | 'block' | 'panchayat' | 'village';
 
 export const LOCATION_SCOPE_LEVELS: { value: LocationScope; label: string; icon: string; rank: number }[] = [
-  { value: 'national', label: 'Country', icon: '🇮🇳', rank: 1 },
-  { value: 'state', label: 'State', icon: '🏛️', rank: 2 },
-  { value: 'district', label: 'District/City', icon: '🏘️', rank: 3 },
-  { value: 'block', label: 'Block/Corporation', icon: '🏙️', rank: 4 },
-  { value: 'panchayat', label: 'Panchayat/Ward', icon: '🏡', rank: 5 },
-  { value: 'village', label: 'Village/Locality', icon: '🌾', rank: 6 },
+  { value: 'national', label: 'Country', icon: 'Flag', rank: 1 },
+  { value: 'state', label: 'State', icon: 'Landmark', rank: 2 },
+  { value: 'district', label: 'District/City', icon: 'Building', rank: 3 },
+  { value: 'block', label: 'Block/Corporation', icon: 'Building2', rank: 4 },
+  { value: 'panchayat', label: 'Panchayat/Ward', icon: 'Home', rank: 5 },
+  { value: 'village', label: 'Village/Locality', icon: 'Wheat', rank: 6 },
 ];
 
 // Launch-phase creation scopes (simplified UX)
@@ -52,7 +52,7 @@ export function isValidHierarchyScopeTransition(
 }
 
 export function getLocationScopeConfig(scope: LocationScope | string) {
-  return LOCATION_SCOPE_LEVELS.find(l => l.value === scope) ?? { value: scope as LocationScope, label: scope, icon: '📍', rank: 99 };
+  return LOCATION_SCOPE_LEVELS.find(l => l.value === scope) ?? { value: scope as LocationScope, label: scope, icon: 'MapPin', rank: 99 };
 }
 
 export function getPartyLocationLabel(party: Partial<Party>): string {

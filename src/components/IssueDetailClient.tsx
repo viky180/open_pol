@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Landmark, Building2, Building, Wheat, Droplets, Megaphone, Sprout } from 'lucide-react';
 import type { LocationScope } from '@/types/database';
 
 // ─── Data Types ───────────────────────────────────────────────────────────────
@@ -133,11 +134,11 @@ type LocationSummary = {
 
 const UNKNOWN_LOCATION_LABEL = 'Unknown';
 
-const GEO_TABS: { id: GeoTab; label: string; icon: string }[] = [
-    { id: 'national', label: 'National', icon: '🏛️' },
-    { id: 'state', label: 'State', icon: '📍' },
-    { id: 'district', label: 'District', icon: '🏙️' },
-    { id: 'village', label: 'Village', icon: '🏘️' },
+const GEO_TABS: { id: GeoTab; label: string }[] = [
+    { id: 'national', label: 'National' },
+    { id: 'state', label: 'State' },
+    { id: 'district', label: 'District' },
+    { id: 'village', label: 'Village' },
 ];
 
 function parseGeoTab(value: string | null | undefined): GeoTab {
@@ -168,7 +169,7 @@ function buildCreateHref(params: Record<string, string | null | undefined>): str
     for (const [key, value] of Object.entries(params)) {
         if (value && value.trim()) search.set(key, value);
     }
-    return `/party/create?${search.toString()}`;
+    return `/group/create?${search.toString()}`;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -278,8 +279,14 @@ function NationalGroupCard({
         { bar: 'var(--iux-blue)', avBg: 'var(--iux-blue-pale)', avBorder: 'var(--iux-blue)', avColor: 'var(--iux-blue)' },
     ];
     const scheme = colors[(rank - 1) % colors.length];
-    const icons = ['💧', '🌾', '🚫', '🌱', '🏛️', '📣'];
-    const icon = icons[(rank - 1) % icons.length];
+    const iconComponents = [
+        <Droplets key="droplets" style={{ width: '22px', height: '22px', flexShrink: 0, marginTop: '1px' }} />,
+        <Wheat key="wheat" style={{ width: '22px', height: '22px', flexShrink: 0, marginTop: '1px' }} />,
+        <Sprout key="sprout" style={{ width: '22px', height: '22px', flexShrink: 0, marginTop: '1px' }} />,
+        <Landmark key="landmark" style={{ width: '22px', height: '22px', flexShrink: 0, marginTop: '1px' }} />,
+        <Megaphone key="megaphone" style={{ width: '22px', height: '22px', flexShrink: 0, marginTop: '1px' }} />,
+    ];
+    const iconComponent = iconComponents[(rank - 1) % iconComponents.length];
 
     return (
         <button
@@ -312,7 +319,7 @@ function NationalGroupCard({
             )}
             <div style={{ marginTop: isUserGroup ? '14px' : 0 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '11px', marginBottom: '10px' }}>
-                    <div style={{ fontSize: '22px', flexShrink: 0, marginTop: '1px' }}>{icon}</div>
+                    <div style={{ flexShrink: 0, marginTop: '1px', color: 'var(--iux-forest)' }}>{iconComponent}</div>
                     <div>
                         <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '15px', fontWeight: 700, color: 'var(--iux-forest)', lineHeight: 1.2, marginBottom: '3px' }}>
                             {group.issue_text}
@@ -368,14 +375,14 @@ function NationalGroupCard({
 
 // ─── COMPETITION EXPLAINER ────────────────────────────────────────────────────
 
-function CompetitionExplainer({ icon, title, body }: { icon: string; title: string; body: string }) {
+function CompetitionExplainer({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
     return (
         <div style={{
             background: 'var(--iux-ochre-pale)', border: '1px solid var(--iux-ochre-border)',
             borderRadius: '8px', padding: '11px 13px', marginBottom: '12px',
             display: 'flex', gap: '10px', alignItems: 'flex-start',
         }}>
-            <div style={{ fontSize: '15px', flexShrink: 0, marginTop: '1px' }}>{icon}</div>
+            <div style={{ flexShrink: 0, marginTop: '1px', color: 'var(--iux-forest)' }}>{icon}</div>
             <div style={{ fontSize: '11.5px', color: 'var(--iux-forest2)', lineHeight: 1.5 }}>
                 <strong style={{ color: 'var(--iux-forest)', display: 'block', marginBottom: '1px', fontSize: '12px' }}>{title}</strong>
                 {body}
@@ -429,7 +436,7 @@ function WinnerCard({ group, pct, badgeLabel }: {
 }) {
     return (
         <Link
-            href={`/party/${group.id}`}
+            href={`/group/${group.id}`}
             style={{
                 display: 'block', textDecoration: 'none',
                 background: 'var(--iux-win-pale)', border: '2px solid var(--iux-win)',
@@ -496,7 +503,7 @@ function SubGroupCard({ group, rank, pct, isUser }: {
 
     return (
         <Link
-            href={`/party/${group.id}`}
+            href={`/group/${group.id}`}
             style={{
                 display: 'block', textDecoration: 'none', color: 'inherit',
                 background: 'var(--iux-white)',
@@ -548,7 +555,7 @@ function SubGroupCard({ group, rank, pct, isUser }: {
                         color: 'var(--iux-forest)',
                     }}
                 >
-                    {isUser ? '✓ Joined' : 'View →'}
+                    {isUser ? <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Joined</span> : 'View →'}
                 </span>
             </div>
         </Link>
@@ -659,7 +666,7 @@ function GeoTabContent({
         return (
             <div style={{ padding: '13px 14px 0' }}>
                 <CompetitionExplainer
-                    icon="🏛️"
+                    icon={<Landmark style={{ width: '15px', height: '15px' }} />}
                     title="National Competition"
                     body={`${nationalGroup.issue_text} competes with other national groups. Group with most members nationally wins. Their most trusted member becomes national leader.`}
                 />
@@ -797,7 +804,7 @@ function StateTabInner({
     return (
         <div style={{ padding: '13px 14px 0' }}>
             <CompetitionExplainer
-                icon="⚔️"
+                icon={<Landmark style={{ width: '15px', height: '15px' }} />}
                 title="State-level competition"
                 body="Groups compete within each state. The most-membered group's top trusted member becomes State Leader."
             />
@@ -847,7 +854,7 @@ function DistrictTabInner({
     return (
         <div style={{ padding: '13px 14px 0' }}>
             <CompetitionExplainer
-                icon="🏙️"
+                icon={<Building2 style={{ width: '15px', height: '15px' }} />}
                 title="District-level competition"
                 body="Groups compete within each district. The most-membered group's top trusted member becomes District Leader."
             />
@@ -897,7 +904,7 @@ function VillageTabInner({
     return (
         <div style={{ padding: '13px 14px 0' }}>
             <CompetitionExplainer
-                icon="🏘️"
+                icon={<Building style={{ width: '15px', height: '15px' }} />}
                 title="Village-level competition"
                 body="Groups compete within each village. The most-membered group's top trusted member becomes Village Leader."
             />
@@ -1187,8 +1194,8 @@ export function IssueDetailClient({
                                 ? 'Offer a different approach while the founding group stays neutral'
                                 : 'Propose a different approach and build a competing national group'}
                             href={foundingGroup
-                                ? `/party/create?fork_of=${foundingGroup.id}`
-                                : `/party/create?location_scope=national&issue_id=${issueId}&issue=${encodeURIComponent(issueName)}`}
+                                ? `/group/create?fork_of=${foundingGroup.id}`
+                                : `/group/create?location_scope=national&issue_id=${issueId}&issue=${encodeURIComponent(issueName)}`}
                         />
                     </div>
                 </div>

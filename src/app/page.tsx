@@ -104,15 +104,10 @@ function getTotalLocations(locationData: LocationRow[] | null): number {
 
   (locationData || []).forEach((party) => {
     const scope = party.location_scope || 'district';
-    const label =
-      party.location_label || party.village_name || party.panchayat_name || party.block_name || party.district_name || party.state_name || null;
+    if (scope !== 'district') return;
 
-    if (label) {
-      allLocations.add(`${scope}:${label}`);
-      return;
-    }
-
-    (party.pincodes || []).forEach((pin) => allLocations.add(`pincode:${pin}`));
+    const label = party.location_label || party.district_name || null;
+    if (label) allLocations.add(label);
   });
 
   return allLocations.size;
@@ -126,7 +121,7 @@ const getCachedGlobalStats = unstable_cache(
     
     const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
     const [{ count: totalGroups }, { count: totalMembers }, { data: locationData }] = await Promise.all([
-      supabase.from('parties').select('*', { count: 'exact', head: true }),
+      supabase.from('parties').select('*', { count: 'exact', head: true }).eq('location_scope', 'national'),
       supabase.from('memberships').select('*', { count: 'exact', head: true }).is('left_at', null),
       supabase
         .from('parties')
@@ -183,14 +178,12 @@ function getMomentumItems(dashboard: DashboardData) {
       memberCount: item.currentMembers,
       memberChange: item.memberChange,
       memberChangePct: item.memberChangePct,
-      href: `/party/${item.partyId}`,
+      href: `/group/${item.partyId}`,
     }));
 }
 
 export default async function HomePage() {
   const supabase = await createClient();
-
-  const globalStatsPromise = getCachedGlobalStats();
 
   const {
     data: { user },
@@ -199,6 +192,7 @@ export default async function HomePage() {
   const firstName = getFirstName(user);
 
   if (isGuest) {
+    const globalStatsPromise = getCachedGlobalStats();
     const featuredGroupsPromise = supabase
       .from('parties_with_member_counts')
       .select('id, issue_text, member_count, category_id, categories(name)')
@@ -242,14 +236,9 @@ export default async function HomePage() {
 
   const dashboardPromise = getHomeDashboard();
 
-  const [
-    { totalGroups, totalMembers, totalLocations },
-    onboardingStatus,
-    dashboardRes
-  ] = await Promise.all([
-    globalStatsPromise,
+  const [onboardingStatus, dashboardRes] = await Promise.all([
     onboardingStatusPromise,
-    dashboardPromise
+    dashboardPromise,
   ]);
 
   let dashboard: DashboardData = { ...DEFAULT_DASHBOARD };
@@ -262,13 +251,9 @@ export default async function HomePage() {
     };
   }
 
-  const compactMembers = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 }).format(
-    totalMembers || 0,
-  );
   const momentumItems = getMomentumItems(dashboard);
   const scopeLabel = getScopeLabel(dashboard);
   const topTrend = dashboard.trending[0];
-  const topDiscussion = dashboard.mostDiscussed[0];
   const nextActionCount = dashboard.actionItems.length;
   const shouldResumeOnboarding = Boolean(onboardingStatus?.shouldCompleteOnboarding);
   const topAction = dashboard.actionItems[0] || null;
@@ -292,15 +277,15 @@ export default async function HomePage() {
     : topAction
       ? { href: topAction.linkUrl, label: 'Resolve next action' }
       : primaryGroup
-        ? { href: `/party/${primaryGroup.id}`, label: 'Continue with your group' }
+        ? { href: `/group/${primaryGroup.id}`, label: 'Continue with your group' }
         : { href: '/discover', label: 'Find your first group' };
   const secondaryCta = shouldResumeOnboarding
     ? { href: '/discover', label: 'Browse groups first' }
     : primaryGroup
       ? topTrend
-        ? { href: `/party/${topTrend.partyId}`, label: 'See what is rising nearby' }
+        ? { href: `/group/${topTrend.partyId}`, label: 'See what is rising nearby' }
         : { href: '/discover', label: 'Compare nearby groups' }
-      : { href: '/party/create', label: 'Start a new group' };
+      : { href: '/group/create', label: 'Start a new group' };
 
   return (
     <div className="min-h-screen">
@@ -326,37 +311,12 @@ export default async function HomePage() {
       </section>
 
       <div className="editorial-page editorial-page--wide space-y-8 py-6">
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-          <div className="xl:col-span-7">
-            <MyGroupsCard
-              groups={dashboard.myGroups}
-              representation={dashboard.representation}
-              actionCount={nextActionCount}
-              onboardingStatus={onboardingStatus}
-            />
-          </div>
-          <div className="space-y-6 xl:col-span-5">
-            <div className="editorial-subcard">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted" style={{ fontFamily: 'var(--font-mono)' }}>
-                    Current reach
-                  </p>
-                  <p className="mt-2 text-base text-text-primary">
-                    <span className="font-semibold">{totalGroups || 0}</span> groups are live across{' '}
-                    <span className="font-semibold">{(totalLocations || 0).toLocaleString('en-IN')}</span> locations.
-                  </p>
-                </div>
-                <span className="badge border-accent/20 bg-accent/10 text-accent">This week</span>
-              </div>
-              <p className="mt-3 text-sm text-text-secondary">
-                {topTrend
-                  ? `${topTrend.issueText} added ${topTrend.memberChange.toLocaleString('en-IN')} members in the last 7 days.`
-                  : `Track what is gaining support around you and compare how fast groups are growing.`}
-              </p>
-            </div>
-          </div>
-        </div>
+        <MyGroupsCard
+          groups={dashboard.myGroups}
+          representation={dashboard.representation}
+          actionCount={nextActionCount}
+          onboardingStatus={onboardingStatus}
+        />
 
         <div className="editorial-section-head">
           <span className="editorial-section-head__label">Rising near you</span>
@@ -377,43 +337,6 @@ export default async function HomePage() {
               userDistrict={dashboard.userDistrict}
               selectedScope={dashboard.selectedScope}
             />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="editorial-subcard text-sm text-text-secondary">
-            {topTrend ? (
-              <>
-                <span className="font-semibold text-text-primary">{topTrend.issueText}</span> added{' '}
-                <span className="font-semibold text-text-primary">{topTrend.memberChange.toLocaleString('en-IN')}</span> members this week.
-              </>
-            ) : (
-              <>No growth signal recorded yet in your current scope.</>
-            )}
-          </div>
-          <div className="editorial-subcard text-sm text-text-secondary">
-            {topDiscussion ? (
-              <>
-                <span className="font-semibold text-text-primary">{topDiscussion.issueText}</span> sparked{' '}
-                <span className="font-semibold text-text-primary">{topDiscussion.discussionCount}</span> recent conversations.
-              </>
-            ) : (
-              <>Total active members visible right now: <span className="font-semibold text-text-primary">{compactMembers}</span></>
-            )}
-          </div>
-          <div className="editorial-subcard text-sm text-text-secondary">
-            {primaryGroup ? (
-              <>
-                Your main group is <span className="font-semibold text-text-primary">{primaryGroup.name}</span>.{' '}
-                {nextActionCount > 0
-                  ? `${nextActionCount} pending action${nextActionCount === 1 ? '' : 's'} are waiting.`
-                  : 'No urgent action is blocking your next step.'}
-              </>
-            ) : (
-              <>
-                Compare nearby groups, track live momentum, or <span className="font-semibold text-text-primary">start your own issue group</span> to organize locally.
-              </>
-            )}
           </div>
         </div>
       </div>

@@ -60,7 +60,7 @@ function TrendCard({
   meta: string;
 }) {
   return (
-    <Link href={`/party/${item.partyId}`} className="card block px-4 py-4 transition hover:-translate-y-0.5">
+    <Link href={`/group/${item.partyId}`} className="card block px-4 py-4 transition hover:-translate-y-0.5">
       <div className="flex items-start gap-3">
         {typeof rank === 'number' && (
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 text-xs font-semibold text-accent" style={{ fontFamily: 'var(--font-mono)' }}>

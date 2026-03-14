@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { Handshake } from 'lucide-react';
 import { getLocationScopeConfig } from '@/types/database';
+import { LocationScopeIcon } from '@/lib/locationIcons';
 import type { DiscoverAllianceItem } from '@/types/discover';
 
 interface DiscoverAlliancesListProps {
@@ -10,7 +12,7 @@ export function DiscoverAlliancesList({ alliances }: DiscoverAlliancesListProps)
     if (alliances.length === 0) {
         return (
             <div className="empty-state py-16">
-                <div className="text-4xl mb-2 opacity-60">🤝</div>
+                <div className="mb-2 opacity-60 flex justify-center"><Handshake className="w-10 h-10" /></div>
                 <p className="text-text-primary font-medium">No alliances yet</p>
                 <p className="text-text-muted text-sm mt-1">
                     Be the first to create an alliance and unite groups for greater impact.
@@ -25,9 +27,9 @@ export function DiscoverAlliancesList({ alliances }: DiscoverAlliancesListProps)
     return (
         <div className="space-y-4">
             {alliances.map((item) => {
-                const scopeLabels = item.scopes.map((scope) => {
+                const scopeEntries = item.scopes.map((scope) => {
                     const scopeConfig = getLocationScopeConfig(scope);
-                    return `${scopeConfig.icon} ${scopeConfig.label}`;
+                    return { scope, icon: scopeConfig.icon, label: scopeConfig.label };
                 });
 
                 return (
@@ -38,7 +40,7 @@ export function DiscoverAlliancesList({ alliances }: DiscoverAlliancesListProps)
                     >
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
-                                <h2 className="text-base font-semibold text-text-primary">🤝 {item.alliance.name}</h2>
+                                <h2 className="text-base font-semibold text-text-primary flex items-center gap-1"><Handshake className="w-4 h-4" /> {item.alliance.name}</h2>
                                 {item.alliance.description && (
                                     <p className="text-xs text-text-secondary mt-1 line-clamp-2">
                                         {item.alliance.description}
@@ -48,8 +50,8 @@ export function DiscoverAlliancesList({ alliances }: DiscoverAlliancesListProps)
                                     <span>
                                         {item.groupCount} group{item.groupCount !== 1 ? 's' : ''}
                                     </span>
-                                    {scopeLabels.map((label) => (
-                                        <span key={label}>{label}</span>
+                                    {scopeEntries.map(({ scope, icon, label }) => (
+                                        <span key={scope} className="flex items-center gap-0.5"><LocationScopeIcon iconName={icon} className="w-3 h-3" /> {label}</span>
                                     ))}
                                 </div>
                                 {item.members.length > 0 && (

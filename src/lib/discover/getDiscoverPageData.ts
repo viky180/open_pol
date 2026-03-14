@@ -43,6 +43,12 @@ export type DiscoverIssueItem = {
     leadingGroupMemberCount: number;
 };
 
+export type UserMembership = {
+    party_id: string;
+    location_scope: string | null;
+    issue_id: string | null;
+};
+
 export type DiscoverPageData = {
     activeView: DiscoverView;
     categories: Category[];
@@ -57,6 +63,7 @@ export type DiscoverPageData = {
     hasMore: boolean;
     totalMembers: number;
     activeMembershipPartyId: string | null;
+    activeMemberships: UserMembership[];
 };
 
 const SCOPE_TO_DB_SCOPE: Record<ExploreScope, LocationScope> = {
@@ -271,17 +278,39 @@ export async function getDiscoverPageData(
     // Start independent promises concurrently
     const userContextPromise = (async () => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return { user: null, activeMembershipPartyId: null };
+        if (!user) return { user: null, activeMembershipPartyId: null, activeMemberships: [] };
 
         const membershipResult = await supabase
             .from('memberships')
-            .select('party_id')
+            .select(`
+                party_id,
+                parties!inner (
+                    location_scope,
+                    issue_id
+                )
+            `)
             .eq('user_id', user.id)
-            .is('left_at', null)
-            .maybeSingle();
+            .is('left_at', null);
 
-        const membership = membershipResult.data as { party_id: string } | null;
-        return { user, activeMembershipPartyId: membership?.party_id || null };
+        const memberships = (membershipResult.data || []) as Array<{
+            party_id: string;
+            parties: { location_scope: string | null; issue_id: string | null } | { location_scope: string | null; issue_id: string | null }[] | null;
+        }>;
+
+        const activeMemberships = memberships.map(m => {
+            const p = Array.isArray(m.parties) ? m.parties[0] : m.parties;
+            return {
+                party_id: m.party_id,
+                location_scope: p?.location_scope || null,
+                issue_id: p?.issue_id || null
+            };
+        });
+
+        return {
+            user,
+            activeMembershipPartyId: activeMemberships.length > 0 ? activeMemberships[0].party_id : null,
+            activeMemberships
+        };
     })();
 
     const categoriesPromise = supabase
@@ -310,6 +339,7 @@ export async function getDiscoverPageData(
             hasMore: false,
             totalMembers: 0,
             activeMembershipPartyId: userContext.activeMembershipPartyId,
+            activeMemberships: userContext.activeMemberships,
         };
     }
 
@@ -334,6 +364,7 @@ export async function getDiscoverPageData(
             hasMore: false,
             totalMembers: 0,
             activeMembershipPartyId: userContext.activeMembershipPartyId,
+            activeMemberships: userContext.activeMemberships,
         };
     }
 
@@ -522,5 +553,6 @@ export async function getDiscoverPageData(
         hasMore,
         totalMembers,
         activeMembershipPartyId,
+        activeMemberships: userContext.activeMemberships,
     };
 }

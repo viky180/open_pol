@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { MessageCircle } from 'lucide-react';
 import type { QuestionWithAnswers, QAMetrics } from '@/types/database';
 import { ResponseRing, StatTileDetail, EmptyStateCard } from './PartyPrimitives';
 
@@ -97,7 +98,7 @@ export function QATab({
             {/* Q&A actions */}
             {!optimisticIsMember ? (
                 <EmptyStateCard
-                    icon="💬"
+                    icon={<MessageCircle className="w-6 h-6" />}
                     title="Members can ask questions"
                     description="Join this group to ask public questions and hold the voice accountable."
                     actionLabel={joinLoading ? 'Joining...' : 'Join to ask'}
@@ -152,7 +153,7 @@ export function QATab({
 
             {questions.length === 0 && optimisticIsMember && (
                 <EmptyStateCard
-                    icon="🗣️"
+                    icon={<MessageCircle className="w-6 h-6" />}
                     title="No questions yet"
                     description="Be the first to ask a public question. Good questions drive accountability."
                 />

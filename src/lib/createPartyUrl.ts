@@ -14,7 +14,7 @@ export type CreatePartyUrlParams = {
 };
 
 /**
- * Builds a /party/create URL with optional prefilled query params.
+ * Builds a /group/create URL with optional prefilled query params.
  *
  * Supported query params:
  * - issue: prefill Issue Statement
@@ -55,7 +55,7 @@ export function createPartyUrl({
     if (village_name) sp.set('village_name', village_name);
 
     const qs = sp.toString();
-    return qs ? `/party/create?${qs}` : '/party/create';
+    return qs ? `/group/create?${qs}` : '/group/create';
 }
 
 

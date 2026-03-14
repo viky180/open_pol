@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { Users, Landmark, Hourglass } from 'lucide-react';
 import type { Party } from '@/types/database';
 import { getLocationScopeConfig, getPartyLocationLabel } from '@/types/database';
+import { LocationScopeIcon } from '@/lib/locationIcons';
 
 interface PartyCardProps {
     party: Party;
@@ -49,25 +51,25 @@ export function PartyCard({
             )}
 
             {/* Location scope label */}
-            <p className="text-xs text-text-muted mb-1">
-                {scopeConfig.icon} {scopeConfig.label} · {locationLabel}
+            <p className="text-xs text-text-muted mb-1 flex items-center gap-1 flex-wrap">
+                <LocationScopeIcon iconName={scopeConfig.icon} className="w-3.5 h-3.5" /> {scopeConfig.label} · {locationLabel}
                 {isGoverning && (
-                    <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 uppercase tracking-wider">
-                        🏛️ Governing
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 uppercase tracking-wider">
+                        <Landmark className="w-3 h-3" /> Governing
                     </span>
                 )}
             </p>
 
             {/* Group name — clickable */}
-            <Link href={`/party/${party.id}`} className="block no-underline">
+            <Link href={`/group/${party.id}`} className="block no-underline">
                 <h3 className="text-[15px] font-semibold text-text-primary leading-snug line-clamp-2 hover:text-primary transition-colors">
                     {party.issue_text}
                 </h3>
             </Link>
 
             {/* Stats */}
-            <p className="text-xs text-text-muted mt-1.5">
-                👥 {memberCount} members
+            <p className="text-xs text-text-muted mt-1.5 flex items-center gap-1">
+                <Users className="w-3.5 h-3.5" /> {memberCount} members
             </p>
 
             {/* Join CTA — only when showJoin is true */}
@@ -85,7 +87,7 @@ export function PartyCard({
                     >
                         {joinLabel === 'Joining…' ? (
                             <span className="flex items-center justify-center gap-2">
-                                <span className="animate-spin">⏳</span>
+                                <Hourglass className="w-4 h-4 animate-spin" />
                                 Joining…
                             </span>
                         ) : (
@@ -93,7 +95,7 @@ export function PartyCard({
                         )}
                     </button>
                     <Link
-                        href={`/party/${party.id}`}
+                        href={`/group/${party.id}`}
                         className="text-xs text-text-muted hover:text-primary transition-colors hidden sm:inline"
                     >
                         View details →

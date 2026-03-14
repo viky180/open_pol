@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from 'react';
+import { MapPin, Hourglass } from 'lucide-react';
 import type { Category, Party } from '@/types/database';
 import { PartyCard } from '@/components/PartyCard';
 import { loadProgressiveDisclosureState } from '@/lib/progressiveDisclosure';
@@ -116,7 +117,7 @@ export function PartyListClient({
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                             <div>
                                 <h4 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                                    📍 Filter by Location
+                                    <MapPin className="w-4 h-4" /> Filter by Location
                                 </h4>
                                 <p className="text-xs text-text-secondary">
                                     Enter your 6-digit postal code to see parties in your area.
@@ -153,8 +154,8 @@ export function PartyListClient({
 
                     {showPincodeFilters && pincode.length === 6 && nearbyCount !== null && (
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="badge bg-primary/10 text-primary border-primary/20">
-                                📍 {pincode}
+                            <span className="badge bg-primary/10 text-primary border-primary/20 flex items-center gap-1">
+                                <MapPin className="w-3 h-3" /> {pincode}
                             </span>
                             <span className="text-sm text-text-muted">
                                 {nearbyCount === 0
@@ -237,7 +238,7 @@ export function PartyListClient({
                             >
                                 {isLoadingMore ? (
                                     <span className="flex items-center gap-2">
-                                        <span className="animate-spin">⏳</span>
+                                        <Hourglass className="w-4 h-4 animate-spin" />
                                         Loading...
                                     </span>
                                 ) : (

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Sparkles, MapPin, Target, Hand } from 'lucide-react';
 import { PartyListClient, type PartyListItem } from '@/components/PartyListClient';
 import { useAuth } from '@/components/AuthContext';
 import { PartyCard } from '@/components/PartyCard';
@@ -287,7 +288,7 @@ export function HomeDiscoveryClient({
             }
 
             // Take them directly into the party after join.
-            router.push(`/party/${partyId}`);
+            router.push(`/group/${partyId}`);
             router.refresh();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unable to join party');
@@ -308,7 +309,7 @@ export function HomeDiscoveryClient({
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
-                                <span>✨</span> Recommended For You
+                                <Sparkles className="w-4 h-4" /> Recommended For You
                             </h3>
                             <p className="text-sm text-text-secondary">
                                 Based on your location{interests.length > 0 ? ' and interests' : ''}
@@ -316,10 +317,10 @@ export function HomeDiscoveryClient({
                         </div>
                         <div className="flex gap-2">
                             {pincode && (
-                                <span className="badge text-xs">📍 {pincode}</span>
+                                <span className="badge text-xs flex items-center gap-1"><MapPin className="w-3 h-3" /> {pincode}</span>
                             )}
                             {interests.length > 0 && (
-                                <span className="badge text-xs">🎯 {interests.length} topics</span>
+                                <span className="badge text-xs flex items-center gap-1"><Target className="w-3 h-3" /> {interests.length} topics</span>
                             )}
                         </div>
                     </div>
@@ -349,7 +350,7 @@ export function HomeDiscoveryClient({
             {!hasPreferences && (
                 <div className="card-glass bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-indigo-500/20">
                     <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-                        <span className="text-3xl">👋</span>
+                        <Hand className="w-8 h-8" />
                         <div className="flex-1">
                             <h3 className="font-semibold text-text-primary">Get personalized recommendations</h3>
                             <p className="text-sm text-text-secondary">Set your location and interests to see relevant parties first</p>

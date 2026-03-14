@@ -1,7 +1,27 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
+import {
+    MessageCircle, Pin, CheckCircle, MapPin, Tag, type LucideProps,
+} from 'lucide-react';
 import type { StepId } from './useConversationalSteps';
+
+const STEP_ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
+    MessageCircle,
+    Pin,
+    CheckCircle,
+    MapPin,
+    Tag,
+};
+
+function StepIcon({ name, className = 'w-4 h-4' }: { name: string; className?: string }) {
+    const IconComponent = STEP_ICON_MAP[name];
+    if (!IconComponent) {
+        // Fallback: render the string (for any remaining literal emojis)
+        return <span>{name}</span>;
+    }
+    return <IconComponent className={className} />;
+}
 
 interface ConversationalStepProps {
     id: StepId;
@@ -48,7 +68,7 @@ export function ConversationalStep({
         return (
             <div ref={stepRef} className="flex items-start gap-3 animate-fade-in">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/20 text-base">
-                    {emoji}
+                    <StepIcon name={emoji} />
                 </div>
 
                 <div className="min-w-0 flex-1">

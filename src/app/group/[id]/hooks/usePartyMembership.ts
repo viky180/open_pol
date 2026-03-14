@@ -123,9 +123,7 @@ export function usePartyMembership({
                 window.sessionStorage.setItem('openpolitics:join-notice', localPathMessage);
             }
 
-            if (localPathMessage) {
-                onStatusMessage('success', localPathMessage);
-            }
+            onStatusMessage('success', localPathMessage || 'Joined group.');
 
             onJoinSuccess?.(payload?.autoProvision ?? null);
         } catch (err) {
@@ -179,6 +177,7 @@ export function usePartyMembership({
                 .eq('from_user_id', currentUserId);
 
             setShowLeaveModal(false);
+            onStatusMessage('success', 'Left group.');
         } catch (err) {
             console.error('Leave error:', err);
             setOptimisticIsMember(isMember);

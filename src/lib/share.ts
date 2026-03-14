@@ -54,7 +54,7 @@ export function getClientOrigin(): string {
 
 export function buildPartyShareUrl(partyId: string, origin?: string): string {
     const base = origin ?? getClientOrigin();
-    return base ? `${base}/party/${partyId}` : `/party/${partyId}`;
+    return base ? `${base}/group/${partyId}` : `/group/${partyId}`;
 }
 
 export async function trackShareEvent(params: {

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { MemberWithVotes } from '@/types/database';
+import { useToast } from '@/components/ToastContext';
 
 interface TrustSelectionScreenProps {
     partyId: string;
@@ -29,6 +30,7 @@ export function TrustSelectionScreen({
     const [selectedMember, setSelectedMember] = useState<string | null>(votedFor);
     const [loading, setLoading] = useState(false);
     const supabase = createClient();
+    const { showToast } = useToast();
 
     const sortedMembers = [...members]
         .filter((member) => member.user_id !== currentUserId)
@@ -40,17 +42,18 @@ export function TrustSelectionScreen({
 
         try {
             if (votedFor) {
-                await supabase
+                const { error: deleteError } = await supabase
                     .from('trust_votes')
                     .delete()
                     .eq('party_id', partyId)
                     .eq('from_user_id', currentUserId);
+                if (deleteError) throw deleteError;
             }
 
             const expiresAt = new Date();
             expiresAt.setDate(expiresAt.getDate() + RECONFIRMATION_DAYS);
 
-            await supabase
+            const { error: insertError } = await supabase
                 .from('trust_votes')
                 .insert({
                     party_id: partyId,
@@ -58,11 +61,14 @@ export function TrustSelectionScreen({
                     to_user_id: selectedMember,
                     expires_at: expiresAt.toISOString(),
                 });
+            if (insertError) throw insertError;
 
+            showToast('success', 'Trust vote saved.');
             onVoteChange();
             onClose?.();
         } catch (err) {
             console.error('Backing error:', err);
+            showToast('error', 'Could not save your trust vote. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -78,6 +84,16 @@ export function TrustSelectionScreen({
                 <h2 className="text-xl font-semibold text-text-primary mb-2">Choose who speaks for you</h2>
                 <p className="text-sm text-text-secondary">
                     Pick one member from <span className="font-medium">{partyName}</span> to speak for you.
+                </p>
+            </div>
+
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 mb-6">
+                <p className="text-sm font-medium text-text-primary mb-2">What is a trust vote?</p>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                    A trust vote is how your group chooses its leader. Instead of a one-time election,
+                    you pick the member you trust most to represent the group. The person with the most
+                    trust votes becomes the leader — and if they lose your trust, you can change your
+                    vote at any time. This keeps leaders accountable to the people they represent.
                 </p>
             </div>
 

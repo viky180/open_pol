@@ -5,33 +5,33 @@ import Link from 'next/link';
 const valueCards = [
     {
         eyebrow: 'Start here',
-        title: 'Start from a real Indian civic problem',
+        title: 'Start with one real problem',
         description:
-            'Create around water supply, potholes, garbage, bus routes, school fees, college issues, jobs, or ward-level corruption instead of generic political debate.',
+            'Pick something people in your area face every week — bad water, broken roads, school fees, jobs. One specific problem in one specific place is far easier to fix than vague national anger.',
     },
     {
         eyebrow: 'Geography',
-        title: 'Organize where power actually sits',
+        title: 'Organize where decisions are actually made',
         description:
-            'Find people by pincode and locality, then grow pressure through district, state, and India-wide layers only when the issue needs it.',
+            'Most problems are decided at the ward, district, or state level — not Delhi. Find people by pincode, organize locally first, then scale up only if the problem demands it.',
     },
     {
         eyebrow: 'Leadership',
-        title: 'Democratically chosen and continuously accountable',
+        title: 'Elected leaders who can be removed',
         description:
-            'Members elect the person they trust and can withdraw that trust at any time. No permanent control, no hidden admin circle — the leader stays accountable or gets replaced.',
+            'Members vote for who leads them. They can take that vote back at any time. A leader who stops performing gets replaced. No permanent bosses, no hidden admin circle.',
     },
     {
         eyebrow: 'Political career',
-        title: 'Build a political career backed by real people',
+        title: 'Earn support from people, not parties',
         description:
-            'If you want to enter politics, start here. Earn visible support from common people in your area, get funded by them directly, and build a track record of real local wins before scaling up.',
+            'If you want to enter politics, build a track record of local wins first. Get funded by the people you serve. Show real numbers of real supporters — then you don\'t need a party gatekeeper to give you a ticket.',
     },
     {
         eyebrow: 'Action',
-        title: 'Turn agreement into coordinated action',
+        title: 'Move from talking to doing',
         description:
-            'Use petitions, fundraising, events, and alliances to move from online agreement to coordinated public action with measurable support.',
+            'Once people agree on a problem, coordinate: petitions, fundraising, public events. Build measurable pressure on the authority that can actually solve it.',
     },
 ];
 
@@ -44,11 +44,10 @@ export function LandingValueSection() {
                 <div className="mb-8 max-w-3xl">
                     <p className="brand-kicker">Why this matters in India</p>
                     <h2 className="mt-4 text-3xl font-bold text-text-primary sm:text-4xl" style={{ fontFamily: 'var(--font-display)' }}>
-                        Organize the frustrated. Elect accountable leaders. Launch political careers.
+                        People have power when they're organized. Right now, they're not.
                     </h2>
                     <p className="mt-3 text-base text-text-secondary">
-                        Most political frustration in India stays scattered and powerless. Open Politics turns it into a structured group with a democratically chosen leader who stays continuously accountable to members.
-                        And for those who want to make a career in politics — this is where you earn real backing from common people, not party gatekeepers.
+                        Most problems in India — bad roads, corrupt officials, no jobs — are not impossible to fix. They stay unsolved because the people affected are scattered. A single complaint gets ignored. A thousand organized people with a chosen leader get heard. That's the only thing Open Politics does.
                     </p>
                 </div>
 
@@ -60,36 +59,6 @@ export function LandingValueSection() {
                             <p className="mt-3 text-sm leading-6 text-text-secondary">{card.description}</p>
                         </article>
                     ))}
-                </div>
-
-                <div className="mt-8 rounded-[1.75rem] border border-border-primary bg-bg-secondary/80 p-5 sm:p-6">
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                        <div className="max-w-2xl">
-                            <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">Common starting points</p>
-                            <h3 className="mt-2 text-2xl font-bold text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>
-                                Start with one issue people already feel every week
-                            </h3>
-                            <p className="mt-2 text-sm leading-6 text-text-secondary">
-                                The strongest groups usually begin with one specific issue, one geography, and one authority people want to pressure.
-                            </p>
-                        </div>
-                        <div className="flex flex-col gap-3 sm:flex-row">
-                            <Link href="/discover" className="btn btn-secondary">
-                                See active issues
-                            </Link>
-                            <Link href="/party/create" className="btn btn-primary">
-                                Start your own group
-                            </Link>
-                        </div>
-                    </div>
-
-                    <div className="mt-5 flex flex-wrap gap-2">
-                        {useCases.map((item) => (
-                            <span key={item} className="badge">
-                                {item}
-                            </span>
-                        ))}
-                    </div>
                 </div>
             </div>
         </section>

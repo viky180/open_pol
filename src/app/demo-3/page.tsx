@@ -242,7 +242,7 @@ export default function DemoPageThree() {
 
                             <div className="rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 p-5 text-center">
                                 <p className="text-sm text-text-secondary">Result: <span className="font-semibold text-text-primary">thousands of micro-movements</span> &mdash; each real, each measurable.</p>
-                                <Link href="/party/create" className="btn btn-primary mt-4">
+                                <Link href="/group/create" className="btn btn-primary mt-4">
                                     Create a group in your locality
                                 </Link>
                             </div>
@@ -644,7 +644,7 @@ export default function DemoPageThree() {
                                 <h4 className="text-xl font-bold text-text-primary">Ready to get started?</h4>
                                 <p className="text-text-secondary mt-2">Join citizens organising around local employment issues.</p>
                                 <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
-                                    <Link href="/party/create" className="btn btn-primary btn-lg shadow-lg shadow-primary/20">
+                                    <Link href="/group/create" className="btn btn-primary btn-lg shadow-lg shadow-primary/20">
                                         Start a Local Employment Group
                                     </Link>
                                     <Link href="/discover" className="btn btn-secondary btn-lg">

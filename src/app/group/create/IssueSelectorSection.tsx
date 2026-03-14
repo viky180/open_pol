@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { Sparkles, Search } from 'lucide-react';
 import type { Issue } from '@/types/database';
 
 type IssueSelectorSectionProps = {
@@ -90,7 +91,7 @@ export function IssueSelectorSection({
                         ? 'border-primary bg-primary/10 text-primary-light font-medium'
                         : 'border-border-primary bg-bg-secondary text-text-secondary hover:border-primary/50'}`}
                 >
-                    ✨ New Issue
+                    <span className="flex items-center justify-center gap-1"><Sparkles className="w-4 h-4" /> New Issue</span>
                 </button>
                 <button
                     type="button"
@@ -99,7 +100,7 @@ export function IssueSelectorSection({
                         ? 'border-primary bg-primary/10 text-primary-light font-medium'
                         : 'border-border-primary bg-bg-secondary text-text-secondary hover:border-primary/50'}`}
                 >
-                    🔍 Find Existing
+                    <span className="flex items-center justify-center gap-1"><Search className="w-4 h-4" /> Find Existing</span>
                 </button>
             </div>
 

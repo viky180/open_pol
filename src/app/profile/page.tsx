@@ -95,7 +95,7 @@ export default async function ProfilePage() {
                 <div className="text-[11px] uppercase tracking-[0.18em] text-text-muted" style={{ fontFamily: 'var(--font-mono)' }}>
                   Current group
                 </div>
-                <Link href={`/party/${activeMembership.party.id}`} className="editorial-link mt-2 block text-base font-semibold">
+                <Link href={`/group/${activeMembership.party.id}`} className="editorial-link mt-2 block text-base font-semibold">
                   {activeMembership.party.issue_text}
                 </Link>
                 <p className="mt-3 text-xs text-text-muted">Joined {new Date(activeMembership.joined_at).toLocaleDateString()}</p>

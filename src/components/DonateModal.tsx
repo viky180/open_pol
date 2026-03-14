@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { PartyPopper, CheckCircle, Hourglass } from 'lucide-react';
 import type { FundingCampaignWithStats, FundingDonationWithDonor } from '@/types/database';
 
 interface DonateModalProps {
@@ -91,7 +92,7 @@ export function DonateModal({ campaign, onClose, onDonationComplete }: DonateMod
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-semibold text-text-primary">
-                        {step === 'confirm' ? '🎉 Thank You!' : 'Support This Cause'}
+                        {step === 'confirm' ? <span className="flex items-center gap-2"><PartyPopper className="w-5 h-5" /> Thank You!</span> : 'Support This Cause'}
                     </h2>
                     <button
                         onClick={onClose}
@@ -282,7 +283,7 @@ export function DonationLedger({ donations }: Omit<DonationLedgerProps, never>) 
                     >
                         <div className="flex items-center gap-2">
                             <span className="text-lg">
-                                {donation.is_verified ? '✅' : '⏳'}
+                                {donation.is_verified ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Hourglass className="w-5 h-5 text-amber-500" />}
                             </span>
                             <div>
                                 <p className="text-sm text-text-primary">

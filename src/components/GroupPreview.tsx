@@ -26,7 +26,7 @@ export function GroupPreview({ groups }: GroupPreviewProps) {
                         <p className="text-sm text-text-secondary max-w-sm mx-auto">
                             There are currently no active groups featured. Start your own group to begin organizing in your community.
                         </p>
-                        <Link href="/party/create" className="btn btn-primary mt-4">
+                        <Link href="/group/create" className="btn btn-primary mt-4">
                             Start a Group
                         </Link>
                     </div>
@@ -54,7 +54,7 @@ export function GroupPreview({ groups }: GroupPreviewProps) {
                     {displayGroups.map((group, index) => (
                         <Link
                             key={group.id}
-                            href={`/party/${group.id}`}
+                            href={`/group/${group.id}`}
                             className="brand-panel flex items-center gap-4 p-4 transition-colors hover:border-primary/40 hover:bg-primary/[0.02]"
                         >
                             <div className="h-11 w-11 shrink-0 rounded-full border border-border-primary bg-bg-tertiary flex items-center justify-center text-xs font-semibold text-text-muted">

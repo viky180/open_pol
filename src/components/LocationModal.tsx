@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
+import { MapPin, CheckCircle, AlertTriangle, Building2, Wheat, Check, Flag, Loader2 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { useLocation } from './LocationContext';
 import { INDIA_STATES_AND_UTS } from '@/lib/indiaLocations';
@@ -380,8 +381,8 @@ export function LocationModal() {
                     <div className="px-6 pt-4 pb-3 border-b border-border-primary">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-0.5">
-                                    📍 Set Your Location
+                                <p className="text-xs font-semibold uppercase tracking-widest text-primary mb-0.5 flex items-center gap-1">
+                                    <MapPin className="w-3.5 h-3.5" /> Set Your Location
                                 </p>
                                 <h2 id="loc-modal-title" className="text-lg font-bold text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>
                                     Where are you located?
@@ -418,14 +419,14 @@ export function LocationModal() {
                                 {/* GPS banner */}
                                 {gpsLoading && (
                                     <div className="flex items-center gap-3 rounded-xl bg-primary/5 border border-primary/20 px-4 py-3">
-                                        <span className="text-lg animate-pulse">📡</span>
+                                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
                                         <p className="text-sm text-primary font-medium">Detecting your location…</p>
                                     </div>
                                 )}
 
                                 {gpsResult && !gpsLoading && (
                                     <div className="flex items-start gap-3 rounded-xl bg-green-50 border border-green-200 px-4 py-3">
-                                        <span className="text-lg mt-0.5">✅</span>
+                                        <CheckCircle className="w-5 h-5 mt-0.5 text-green-700" />
                                         <div>
                                             <p className="text-sm font-semibold text-green-800">Detected location</p>
                                             <p className="text-sm text-green-700 mt-0.5">{gpsResult.label}</p>
@@ -438,7 +439,7 @@ export function LocationModal() {
 
                                 {gpsError && !gpsLoading && (
                                     <div className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
-                                        <span className="text-lg mt-0.5">⚠️</span>
+                                        <AlertTriangle className="w-5 h-5 mt-0.5 text-amber-600" />
                                         <p className="text-sm text-amber-800">{gpsError}</p>
                                     </div>
                                 )}
@@ -449,7 +450,7 @@ export function LocationModal() {
                                         onClick={attemptGps}
                                         className="w-full flex items-center justify-center gap-2 rounded-xl border border-border-primary bg-bg-secondary px-4 py-3 text-sm font-medium text-text-primary transition-all hover:bg-bg-hover"
                                     >
-                                        <span>📡</span> Detect my location
+                                        <MapPin className="w-4 h-4" /> Detect my location
                                     </button>
                                 )}
                             </div>
@@ -463,7 +464,7 @@ export function LocationModal() {
                                         Country
                                     </label>
                                     <div className="flex items-center gap-2 rounded-xl border border-border-primary bg-bg-tertiary px-4 py-3">
-                                        <span className="text-base">🇮🇳</span>
+                                        <Flag className="w-4 h-4" />
                                         <span className="text-sm font-medium text-text-primary">India</span>
                                         <span className="ml-auto text-xs text-text-muted">Default</span>
                                     </div>
@@ -516,13 +517,13 @@ export function LocationModal() {
                                         : 'border-border-primary bg-bg-secondary hover:border-primary/40'
                                         }`}
                                 >
-                                    <span className="text-2xl">🏙️</span>
+                                    <Building2 className="w-6 h-6" />
                                     <div>
                                         <p className="font-semibold text-text-primary text-sm">Urban</p>
                                         <p className="text-xs text-text-muted mt-0.5">City, Town, Municipal Corporation</p>
                                     </div>
                                     {areaType === 'urban' && (
-                                        <span className="ml-auto text-primary text-lg">✓</span>
+                                        <Check className="ml-auto w-5 h-5 text-primary" />
                                     )}
                                 </button>
                                 <button
@@ -533,13 +534,13 @@ export function LocationModal() {
                                         : 'border-border-primary bg-bg-secondary hover:border-primary/40'
                                         }`}
                                 >
-                                    <span className="text-2xl">🌾</span>
+                                    <Wheat className="w-6 h-6" />
                                     <div>
                                         <p className="font-semibold text-text-primary text-sm">Rural</p>
                                         <p className="text-xs text-text-muted mt-0.5">Village, Gram Panchayat, Block</p>
                                     </div>
                                     {areaType === 'rural' && (
-                                        <span className="ml-auto text-primary text-lg">✓</span>
+                                        <Check className="ml-auto w-5 h-5 text-primary" />
                                     )}
                                 </button>
                             </div>
@@ -686,7 +687,7 @@ export function LocationModal() {
                                 }
                                 className="flex-1 sm:flex-none sm:min-w-[140px] rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {saving ? 'Saving…' : '✓ Save Location'}
+                                {saving ? 'Saving…' : <span className="flex items-center gap-1"><Check className="w-4 h-4" /> Save Location</span>}
                             </button>
                         )}
                     </div>

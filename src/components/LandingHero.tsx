@@ -15,12 +15,12 @@ export function LandingHero({ totalGroups, totalMembers, totalLocations }: Landi
                 <div className="editorial-hero">
                     <p className="editorial-hero__eyebrow">Built for issue-based organizing in India</p>
                     <h1 className="editorial-hero__title">
-                        Turn frustrated citizens
-                        <br />
-                        into an organized political force.
+                        Turn frustration into organized political power.
                     </h1>
                     <p className="editorial-hero__body">
-                        Channel scattered frustration into a structured group with a democratically chosen leader who stays continuously accountable to members — not to a party. And if you want to build a career in politics, this is where real common people back you and fund you.
+                        Citizens unite around issues, elect leaders democratically, and hold them accountable — not political parties.
+                        <br /><br />
+                        Want to enter politics? Build real support from citizens who organize, back you, and fund your journey.
                     </p>
 
                     <div className="mt-6 flex flex-wrap gap-2 text-xs sm:text-sm">
@@ -30,12 +30,9 @@ export function LandingHero({ totalGroups, totalMembers, totalLocations }: Landi
                         <span className="issue-meta-chip">Funded by common people</span>
                     </div>
 
-                    <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                    <div className="mt-7">
                         <Link href="/discover" className="btn btn-primary btn-lg">
-                            Find your local group
-                        </Link>
-                        <Link href="/party/create" className="btn btn-secondary btn-lg">
-                            Start an issue group
+                            Join a national group for your most pressing issue
                         </Link>
                     </div>
                     <p className="mt-3 text-sm text-white/60">Join free. One group per level. Change your mind any time.</p>

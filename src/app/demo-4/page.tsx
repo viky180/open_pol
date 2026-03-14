@@ -1015,7 +1015,7 @@ export default function DemoPageFour() {
                                     Every shadow minister begins with one local group. Join the movement or start one in your village.
                                 </p>
                                 <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
-                                    <Link href="/party/create" className="btn btn-primary btn-lg shadow-lg shadow-primary/20">
+                                    <Link href="/group/create" className="btn btn-primary btn-lg shadow-lg shadow-primary/20">
                                         Start a Local Employment Group
                                     </Link>
                                     <Link href="/demo-3" className="btn btn-secondary btn-lg">

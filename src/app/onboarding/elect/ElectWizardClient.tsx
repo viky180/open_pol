@@ -24,7 +24,7 @@ function buildCreateGroupUrl(level: LevelData, issueText: string, nationalId: st
         ...(level.userDistrict ? { district_name: level.userDistrict } : {}),
         ...(level.userVillage  ? { village_name: level.userVillage }   : {}),
     });
-    return `/party/create?${params.toString()}`;
+    return `/group/create?${params.toString()}`;
 }
 
 export function ElectWizardClient({ levels, currentUserId, nationalId, issueId, issueText, categoryId }: Props) {
@@ -42,7 +42,7 @@ export function ElectWizardClient({ levels, currentUserId, nationalId, issueId, 
     const [joinError, setJoinError] = useState<string | null>(null);
 
     if (levels.length === 0) {
-        router.push(`/party/${nationalId}`);
+        router.push(`/group/${nationalId}`);
         return null;
     }
 
@@ -53,7 +53,7 @@ export function ElectWizardClient({ levels, currentUserId, nationalId, issueId, 
         setJoinError(null);
         if (isLastStep) {
             setFinishing(true);
-            router.push(`/party/${nationalId}`);
+            router.push(`/group/${nationalId}`);
             router.refresh();
         } else {
             setCurrentStep(s => s + 1);

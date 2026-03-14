@@ -12,7 +12,7 @@ export function getNavigationItems(isAuthenticated: boolean): AppNavItem[] {
   const commonItems: AppNavItem[] = [
     { href: '/', label: 'Home', short: 'H' },
     { href: '/discover', label: 'Explore', short: 'E', matchStartsWith: true },
-    { href: '/party/create', label: 'Create', short: '+', isPrimaryAction: true, matchStartsWith: true },
+    { href: '/group/create', label: 'Create', short: '+', isPrimaryAction: true, matchStartsWith: true },
   ];
 
   if (isAuthenticated) {

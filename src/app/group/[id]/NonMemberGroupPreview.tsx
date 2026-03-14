@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { MapPin } from 'lucide-react';
 import type { Party, MemberWithVotes } from '@/types/database';
 import { getLocationScopeConfig, getPartyLocationLabel } from '@/types/database';
 import {
@@ -11,6 +12,7 @@ import {
     buildXShareUrl,
     trackShareEvent,
 } from '@/lib/share';
+import { LocationScopeIcon } from '@/lib/locationIcons';
 
 interface NonMemberGroupPreviewProps {
     party: Party;
@@ -41,7 +43,7 @@ export function NonMemberGroupPreview({
     const shareCtx = {
         url: shareUrl,
         title: party.issue_text,
-        subtitle: `📍 ${getPartyLocationLabel(party)}`,
+        subtitle: getPartyLocationLabel(party),
     };
     const whatsappShareUrl = buildWhatsAppShareUrl(shareCtx);
     const xShareUrl = buildXShareUrl(shareCtx);
@@ -49,7 +51,7 @@ export function NonMemberGroupPreview({
     const scopeConfig = getLocationScopeConfig(party.location_scope || 'district');
 
     const handleJoin = () => {
-        const returnPath = `/party/${party.id}`;
+        const returnPath = `/group/${party.id}`;
         router.push(`/auth?returnTo=${encodeURIComponent(returnPath)}`);
     };
 
@@ -84,8 +86,8 @@ export function NonMemberGroupPreview({
 
                 {/* Meta Row */}
                 <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary mb-4">
-                    <span className="badge">{scopeConfig.icon} {scopeConfig.label}</span>
-                    <span className="text-text-muted">📍 {getPartyLocationLabel(party)}</span>
+                    <span className="badge flex items-center gap-1"><LocationScopeIcon iconName={scopeConfig.icon} className="w-3.5 h-3.5" /> {scopeConfig.label}</span>
+                    <span className="text-text-muted flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {getPartyLocationLabel(party)}</span>
                     <span className="text-text-muted">
                         {memberCount} {memberCount === 1 ? 'member' : 'members'}
                     </span>

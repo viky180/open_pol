@@ -110,7 +110,7 @@ export async function POST(request: NextRequest, { params }: Props) {
             title: `📅 New ${eventType.replace('_', ' ')} event`,
             body: `${title} has been scheduled. RSVP now for location-based reminders.`,
             icon: '/favicon.ico',
-            url: `/party/${partyId}`,
+            url: `/group/${partyId}`,
         });
     } catch {
         // best effort only

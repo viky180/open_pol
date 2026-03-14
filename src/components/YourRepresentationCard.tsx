@@ -18,7 +18,7 @@ export function YourRepresentationCard({ membership }: YourRepresentationCardPro
 
     const handleCardNavigation = () => {
         if (membership?.partyId) {
-            router.push(`/party/${membership.partyId}`);
+            router.push(`/group/${membership.partyId}`);
             return;
         }
         router.push('/discover');
@@ -131,7 +131,7 @@ export function YourRepresentationCard({ membership }: YourRepresentationCardPro
 
                 <div className="mt-4 flex items-center justify-end">
                     <Link
-                        href={`/party/${partyId}`}
+                        href={`/group/${partyId}`}
                         onClick={(event) => event.stopPropagation()}
                         className="text-sm font-semibold text-primary/80 hover:text-primary transition-all flex items-center gap-1.5 bg-primary/5 hover:bg-primary/10 px-4 py-2 rounded-lg"
                     >

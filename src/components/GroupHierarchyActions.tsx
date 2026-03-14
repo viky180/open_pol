@@ -4,9 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Globe, Folder, Users, FolderOpen, Trash2, X, Check, MapPin } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import type { Party } from '@/types/database';
 import { getLocationScopeConfig, getLocationScopeRank, getPartyLocationLabel } from '@/types/database';
+import { LocationScopeIcon } from '@/lib/locationIcons';
 
 type PartyWithMemberCount = Party & { member_count?: number };
 
@@ -22,11 +24,11 @@ type GroupHierarchyActionsProps = {
     parentHasLeader?: boolean;
 };
 
-function getNodeTypeIcon(nodeType: string | undefined) {
+function NodeTypeIcon({ nodeType, className = 'w-4 h-4' }: { nodeType: string | undefined; className?: string }) {
     switch (nodeType) {
-        case 'community': return '🌐';
-        case 'sub_community': return '📁';
-        default: return '👥';
+        case 'community': return <Globe className={className} />;
+        case 'sub_community': return <Folder className={className} />;
+        default: return <Users className={className} />;
     }
 }
 
@@ -202,13 +204,13 @@ export function GroupHierarchyActions({
                 {/* Current parent info */}
                 {currentParentParty ? (
                     <div className="flex items-center gap-3 text-sm">
-                        <span className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-base shrink-0">
-                            📁
+                        <span className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                            <Folder className="w-4 h-4" />
                         </span>
                         <div className="flex-1 min-w-0">
                             <p className="text-xs text-text-muted">Main movement</p>
                             <Link
-                                href={`/party/${currentParentParty.id}`}
+                                href={`/group/${currentParentParty.id}`}
                                 className="block font-medium text-text-primary truncate hover:text-primary hover:underline"
                             >
                                 {currentParentParty.issue_text}
@@ -217,15 +219,15 @@ export function GroupHierarchyActions({
                     </div>
                 ) : (
                     <div className="flex items-center gap-3 text-sm">
-                        <span className="w-8 h-8 rounded-lg bg-bg-tertiary flex items-center justify-center text-base shrink-0">
-                            📂
+                        <span className="w-8 h-8 rounded-lg bg-bg-tertiary flex items-center justify-center shrink-0">
+                            <FolderOpen className="w-4 h-4" />
                         </span>
                         <div className="flex-1 min-w-0">
                             <p className="text-xs text-text-muted">Independent group</p>
                             <p className="text-sm text-text-secondary">Connect to a bigger movement any time.</p>
                         </div>
-                        <span className="badge text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary">
-                            {getLocationScopeConfig(party.location_scope || 'district').icon} {getLocationScopeConfig(party.location_scope || 'district').label}
+                        <span className="badge text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary flex items-center gap-1">
+                            <LocationScopeIcon iconName={getLocationScopeConfig(party.location_scope || 'district').icon} className="w-3 h-3" /> {getLocationScopeConfig(party.location_scope || 'district').label}
                         </span>
                     </div>
                 )}
@@ -326,16 +328,16 @@ export function GroupHierarchyActions({
                                             type="button"
                                             onClick={handleDelete}
                                             disabled={isLoading}
-                                            className="text-xs font-medium text-red-500 hover:text-red-600"
+                                            className="text-xs font-medium text-red-500 hover:text-red-600 flex items-center gap-1"
                                         >
-                                            {isLoading ? '...' : '🗑️ Yes'}
+                                            {isLoading ? '...' : <><Trash2 className="w-3 h-3" /> Yes</>}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setShowDeleteConfirm(false)}
-                                            className="text-xs font-medium text-text-muted hover:text-text-primary"
+                                            className="text-xs font-medium text-text-muted hover:text-text-primary flex items-center gap-1"
                                         >
-                                            ✗ No
+                                            <X className="w-3 h-3" /> No
                                         </button>
                                     </div>
                                 ) : (
@@ -345,7 +347,7 @@ export function GroupHierarchyActions({
                                         disabled={isLoading}
                                         className="btn btn-secondary btn-sm flex items-center gap-1.5 text-red-500 border-red-500/30 hover:bg-red-500/10"
                                     >
-                                        🗑️ Delete group
+                                        <Trash2 className="w-4 h-4" /> Delete group
                                     </button>
                                 )}
                             </>
@@ -374,8 +376,8 @@ export function GroupHierarchyActions({
                         {/* Header */}
                         <div className="p-5 pb-3 border-b border-border-primary">
                             <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-lg font-semibold text-text-primary">
-                                    📂 Join a movement
+                                <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+                                    <FolderOpen className="w-5 h-5" /> Join a movement
                                 </h3>
                                 <button
                                     type="button"
@@ -383,7 +385,7 @@ export function GroupHierarchyActions({
                                     disabled={isLoading}
                                     className="w-8 h-8 rounded-lg hover:bg-bg-tertiary flex items-center justify-center text-text-muted hover:text-text-primary transition-colors"
                                 >
-                                    ✕
+                                    <X className="w-4 h-4" />
                                 </button>
                             </div>
                             <p className="text-sm text-text-secondary mb-3">
@@ -431,22 +433,22 @@ export function GroupHierarchyActions({
                                                 }`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <span className="w-9 h-9 rounded-lg bg-bg-tertiary flex items-center justify-center text-lg shrink-0">
-                                                    {getNodeTypeIcon(p.node_type)}
+                                                <span className="w-9 h-9 rounded-lg bg-bg-tertiary flex items-center justify-center shrink-0">
+                                                    <NodeTypeIcon nodeType={p.node_type} className="w-5 h-5" />
                                                 </span>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium text-text-primary line-clamp-2">
                                                         {p.issue_text}
                                                     </p>
-                                                    <p className="text-xs text-text-muted mt-0.5">
+                                                    <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1 flex-wrap">
                                                         {p.member_count ?? 0} members
-                                                        {` • 📍 ${getPartyLocationLabel(p)}`}
-                                                        {` • ${getLocationScopeConfig(p.location_scope || 'district').icon} ${getLocationScopeConfig(p.location_scope || 'district').label}`}
+                                                        <span className="flex items-center gap-0.5">• <MapPin className="w-3 h-3" /> {getPartyLocationLabel(p)}</span>
+                                                        <span className="flex items-center gap-0.5">• <LocationScopeIcon iconName={getLocationScopeConfig(p.location_scope || 'district').icon} className="w-3 h-3" /> {getLocationScopeConfig(p.location_scope || 'district').label}</span>
                                                     </p>
                                                 </div>
                                                 {isSelected && (
-                                                    <span className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs shrink-0">
-                                                        ✓
+                                                    <span className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shrink-0">
+                                                        <Check className="w-3.5 h-3.5" />
                                                     </span>
                                                 )}
                                             </div>

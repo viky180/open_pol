@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { Flag, MapPin, Building2, Building, Home, Wheat, Landmark } from 'lucide-react';
 import type { Party, Category } from '@/types/database';
 import { createPartyUrl } from '@/lib/createPartyUrl';
 
@@ -117,15 +118,15 @@ function getRelativeTime(dateString: string | null | undefined): string {
     return `${Math.floor(diffDays / 30)}mo ago`;
 }
 
-function getScopeLabel(scope: string | undefined | null): string {
+function ScopeLabel({ scope }: { scope: string | undefined | null }) {
     switch (scope) {
-        case 'national': return '🇮🇳 Country';
-        case 'state': return '📍 State';
-        case 'district': return '📍 District/City';
-        case 'block': return '🏙️ Block/Corporation';
-        case 'panchayat': return '🏘️ Panchayat/Ward';
-        case 'village': return '🏡 Village/Locality';
-        default: return '📍 Local';
+        case 'national': return <span className="flex items-center gap-1"><Flag className="w-3.5 h-3.5" /> Country</span>;
+        case 'state': return <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> State</span>;
+        case 'district': return <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" /> District/City</span>;
+        case 'block': return <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" /> Block/Corporation</span>;
+        case 'panchayat': return <span className="flex items-center gap-1"><Home className="w-3.5 h-3.5" /> Panchayat/Ward</span>;
+        case 'village': return <span className="flex items-center gap-1"><Wheat className="w-3.5 h-3.5" /> Village/Locality</span>;
+        default: return <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> Local</span>;
     }
 }
 
@@ -136,7 +137,7 @@ function mergeUniqueGroups(existing: GroupItem[], incoming: GroupItem[]): GroupI
 }
 
 function getPartyDetailsHref(id: string): string {
-    return `/party/${id}`;
+    return `/group/${id}`;
 }
 
 function buildUrl(pathname: string, params: URLSearchParams): string {
@@ -411,7 +412,6 @@ export function CommunityGroupsList({
                         const resolvedChildren = item.children || detailData?.children;
                         const hasChildren = item.hasChildren || (resolvedChildren && resolvedChildren.length > 0);
                         const isLoadingExpandedData = loadingExpandedIds.has(item.party.id);
-                        const scopeLabel = getScopeLabel(item.party.location_scope);
                         const createChapterHref = createChapterUrl(item.party);
 
                         return (
@@ -426,11 +426,11 @@ export function CommunityGroupsList({
                                         className="flex-1 min-w-0"
                                     >
                                         {/* Scope label */}
-                                        <span className="text-xs text-text-muted">
-                                            {scopeLabel}
+                                        <span className="text-xs text-text-muted flex items-center gap-1 flex-wrap">
+                                            <ScopeLabel scope={item.party.location_scope} />
                                             {item.isGoverning && (
-                                                <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 uppercase tracking-wider">
-                                                    🏛️ Governing
+                                                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 uppercase tracking-wider">
+                                                    <Landmark className="w-3 h-3" /> Governing
                                                 </span>
                                             )}
                                         </span>
@@ -504,7 +504,7 @@ export function CommunityGroupsList({
                             {EMPTY_STATE_DESCRIPTION}
                         </p>
                         <Link
-                            href="/party/create"
+                            href="/group/create"
                             className="btn btn-primary"
                         >Start a group</Link>
                     </div>

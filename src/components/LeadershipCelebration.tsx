@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PartyPopper, Crown, X } from 'lucide-react';
 
 type LeadershipCelebrationProps = {
     partyId: string;
@@ -88,12 +89,12 @@ export function LeadershipCelebration({
         <div className="mb-6 p-4 rounded-2xl border border-accent/40 bg-gradient-to-r from-accent/10 to-primary/10 animate-fade-in">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <span className="text-3xl">👑</span>
+                    <Crown className="w-8 h-8 text-amber-500" />
                     <div>
                         {isCurrentUserLeader ? (
                             <>
-                                <div className="text-lg font-bold text-text-primary">
-                                    🎉 You&apos;re now the leader!
+                                <div className="text-lg font-bold text-text-primary flex items-center gap-2">
+                                    <PartyPopper className="w-5 h-5" /> You&apos;re now the leader!
                                 </div>
                                 <p className="text-sm text-text-secondary mt-1">
                                     As leader, you can manage this group&apos;s connections and represent your members.
@@ -114,10 +115,10 @@ export function LeadershipCelebration({
                 <button
                     type="button"
                     onClick={() => setShow(false)}
-                    className="text-text-muted hover:text-text-primary text-lg"
+                    className="text-text-muted hover:text-text-primary"
                     aria-label="Dismiss"
                 >
-                    ✕
+                    <X className="w-5 h-5" />
                 </button>
             </div>
 

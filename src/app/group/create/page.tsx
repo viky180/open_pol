@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -59,7 +59,7 @@ function CreatePartyPage() {
         }
     }, []);
 
-    // â”€â”€ Form state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Form state ────────────────────────────────────────────────────────────
     const [issueText, setIssueText] = useState(initialPrefill.issueText);
     const [titleImageUrl, setTitleImageUrl] = useState(initialPrefill.titleImageUrl);
     const [titleImageUploading, setTitleImageUploading] = useState(false);
@@ -71,11 +71,11 @@ function CreatePartyPage() {
     const [forkOfPartyId, setForkOfPartyId] = useState(initialPrefill.forkOfPartyId);
     const [categoryId, setCategoryId] = useState(initialPrefill.categoryId);
 
-    // ── Issue entity state (for national-scope groups) ─────────────────────────────
+    // -- Issue entity state (for national-scope groups) -----------------------------
     const [issueId, setIssueId] = useState('');
     const [newIssueName, setNewIssueName] = useState('');
 
-    // â”€â”€ Location state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Location state ────────────────────────────────────────────────────────
     const [locationScope, setLocationScope] = useState(initialPrefill.locationScope || 'district');
     const [stateName, setStateName] = useState(initialPrefill.stateName);
     const [districtName, setDistrictName] = useState(initialPrefill.districtName);
@@ -83,11 +83,11 @@ function CreatePartyPage() {
     const [panchayatName, setPanchayatName] = useState(initialPrefill.panchayatName);
     const [villageName, setVillageName] = useState(initialPrefill.villageName);
 
-    // â”€â”€ Misc â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Misc ──────────────────────────────────────────────────────────────────
     const [categories, setCategories] = useState<Category[]>([]);
     const [isAdmin, setIsAdmin] = useState(false);
 
-    // â”€â”€ URL change: sync all prefill fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── URL change: sync all prefill fields ───────────────────────────────────
     useEffect(() => {
         const nextPrefill = getCreatePartyPrefill(searchParamsKey);
         setIssueText(nextPrefill.issueText);
@@ -104,7 +104,7 @@ function CreatePartyPage() {
         setVillageName(nextPrefill.villageName);
     }, [searchParamsKey]);
 
-    // â”€â”€ Stable setters for prefill hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Stable setters for prefill hook ───────────────────────────────────────
     const stableSetLocationScope = setLocationScope;
     const stableSetStateName = setStateName;
     const stableSetDistrictName = setDistrictName;
@@ -115,7 +115,7 @@ function CreatePartyPage() {
     const stableSetCategoryId = setCategoryId;
     const stableSetIssueText = setIssueText;
 
-    // â”€â”€ Custom hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Custom hooks ──────────────────────────────────────────────────────────
     const {
         forkSourceParty,
         parentParty,
@@ -146,7 +146,7 @@ function CreatePartyPage() {
         leaveError,
     } = useEligibilityGate({ parentPartyId, isAdmin });
 
-    // â”€â”€ Location scope cleanup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Location scope cleanup ────────────────────────────────────────────────
     useEffect(() => {
         if (locationScope === 'national') {
             setStateName('');
@@ -163,7 +163,7 @@ function CreatePartyPage() {
         if (!['state', 'district', 'block'].includes(locationScope)) setStateName('');
     }, [locationScope]);
 
-    // â”€â”€ Auto-naming: react to location changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Auto-naming: react to location changes ────────────────────────────────
     const [prevLocationQualifier, setPrevLocationQualifier] = useState('');
 
     useEffect(() => {
@@ -197,7 +197,7 @@ function CreatePartyPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [locationScope, stateName, districtName, blockName, panchayatName, villageName]);
 
-    // â”€â”€ Data fetching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Data fetching ─────────────────────────────────────────────────────────
     const loadCategories = useCallback(async () => {
         const response = await fetch('/api/categories');
         if (!response.ok) return;
@@ -218,7 +218,7 @@ function CreatePartyPage() {
         };
         checkAdmin();
     }, []);
-    // â”€â”€ Derived values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Derived values ────────────────────────────────────────────────────────
     const pincodeArray = useMemo(() => parsePincodes(pincodes), [pincodes]);
 
     const computedLocationLabel = useMemo(
@@ -259,7 +259,7 @@ function CreatePartyPage() {
     const isIssueValid = issueText.trim().length > 0 && issueText.length <= 280;
     const isSubmitDisabled = loading || !isIssueValid || !scopeLocationValid;
 
-    // â”€â”€ Step context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Step context ──────────────────────────────────────────────────────────
     const stepCtx = useMemo(() => ({
         forkOfPartyId,
         parentPartyId,
@@ -307,7 +307,7 @@ function CreatePartyPage() {
         createProgressSteps.findIndex((step) => step.status === 'current') + 1
     );
 
-    // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Handlers ──────────────────────────────────────────────────────────────
     const handleTitleImageFileChange = async (file: File | null) => {
         if (!file) return;
 
@@ -343,7 +343,7 @@ function CreatePartyPage() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                const returnUrl = new URL('/party/create', window.location.origin);
+                const returnUrl = new URL('/group/create', window.location.origin);
                 if (issueText) returnUrl.searchParams.set('issue', issueText);
                 if (titleImageUrl) returnUrl.searchParams.set('title_image_url', titleImageUrl);
                 if (pincodes) returnUrl.searchParams.set('pincodes', pincodes);
@@ -376,7 +376,7 @@ function CreatePartyPage() {
                 if (!forkScopeValid) throw new Error('Alternative chapter must use the same impact area as the selected group.');
             }
 
-            // ── Resolve issue for national groups ───────────────────────────────────
+            // -- Resolve issue for national groups -----------------------------------
             let resolvedIssueId: string | null = null;
             if (locationScope === 'national' && !parentPartyId) {
                 if (issueId) {
@@ -464,7 +464,7 @@ function CreatePartyPage() {
                 if (wouldCycle) throw new Error('Can\'t connect these groups this way.');
             }
 
-            router.push(`/party/${party.id}`);
+            router.push(`/group/${party.id}`);
         } catch (err: unknown) {
             const message =
                 err instanceof Error
@@ -478,7 +478,7 @@ function CreatePartyPage() {
         }
     };
 
-    // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Render ────────────────────────────────────────────────────────────────
     const displayError = error || leaveError;
     const pageTitle = forkOfPartyId ? 'Create alternative group' : parentPartyId ? createChildGroupLabel : 'Create group';
 
@@ -512,7 +512,7 @@ function CreatePartyPage() {
                             <p className="text-sm text-text-secondary leading-relaxed">
                                 Alternative to:{' '}
                                 {forkSourceParty ? (
-                                    <Link href={`/party/${forkSourceParty.id}`} className="text-primary hover:underline font-medium">
+                                    <Link href={`/group/${forkSourceParty.id}`} className="text-primary hover:underline font-medium">
                                         {forkSourceParty.issue_text.slice(0, 120)}
                                     </Link>
                                 ) : (
@@ -528,7 +528,7 @@ function CreatePartyPage() {
                             <p className="text-sm text-text-secondary leading-relaxed">
                                 Local chapter under:{' '}
                                 {parentParty ? (
-                                    <Link href={`/party/${parentParty.id}`} className="text-primary hover:underline font-medium">
+                                    <Link href={`/group/${parentParty.id}`} className="text-primary hover:underline font-medium">
                                         {parentParty.issue_text.slice(0, 120)}
                                     </Link>
                                 ) : (
@@ -561,7 +561,7 @@ function CreatePartyPage() {
                         steps={createProgressSteps}
                     />
 
-                    {/* â”€â”€ Conversational steps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                    {/* ── Conversational steps ─────────────────────────────── */}
                     <form onSubmit={handleSubmit}>
                         <div className="mt-4 space-y-4">
 
@@ -569,7 +569,7 @@ function CreatePartyPage() {
                             {showLocationScopeSelector && (
                                 <ConversationalStep
                                     id="scope"
-                                    emoji="🗺️"
+                                    emoji="???"
                                     question="How broad should this group be?"
                                     summaryText={getScopeSummary(locationScope)}
                                     isVisible={steps.isStepVisible('scope')}
@@ -600,9 +600,9 @@ function CreatePartyPage() {
                             {locationScope === 'national' && !parentPartyId && !forkOfPartyId && (
                                 <ConversationalStep
                                     id="issue_selector"
-                                    emoji="🏷️"
+                                    emoji="???"
                                     question="Which national issue does this group belong to?"
-                                    summaryText={issueId ? '✅ Issue selected' : newIssueName.trim() ? `New: "${newIssueName.slice(0, 50)}"` : '(not set)'}
+                                    summaryText={issueId ? '? Issue selected' : newIssueName.trim() ? `New: "${newIssueName.slice(0, 50)}"` : '(not set)'}
                                     isVisible={steps.isStepVisible('issue_selector')}
                                     isCompleted={steps.isStepCompleted('issue_selector')}
                                     isEditing={steps.isStepEditing('issue_selector')}
@@ -628,7 +628,7 @@ function CreatePartyPage() {
                             {/* Step 3: Group's issue statement */}
                             <ConversationalStep
                                 id="issue"
-                                emoji="💬"
+                                emoji="??"
                                 question={
                                     locationScope === 'national' && !parentPartyId
                                         ? "What specific, searchable position should this group take on the issue?"
@@ -665,7 +665,7 @@ function CreatePartyPage() {
                             {locationScope !== 'national' && (
                                 <ConversationalStep
                                     id="scope_details"
-                                    emoji="📌"
+                                    emoji="??"
                                     question="Which location should this group represent?"
                                     summaryText={getScopeDetailsSummary(locationScope, stateName, districtName, blockName, panchayatName, villageName)}
                                     isVisible={steps.isStepVisible('scope_details')}
@@ -702,7 +702,7 @@ function CreatePartyPage() {
                             {/* Step 5: Category */}
                             <ConversationalStep
                                 id="category"
-                                emoji="🏷️"
+                                emoji="???"
                                 question="Pick a topic area for this group."
                                 summaryText={getCategorySummary(categoryId, categories)}
                                 isVisible={steps.isStepVisible('category')}
@@ -823,7 +823,7 @@ function CreatePartyPage() {
     );
 }
 
-// â”€â”€ Small helper for review rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Small helper for review rows ──────────────────────────────────────────────
 function ReviewRow({ label, value }: { label: string; value: string }) {
     return (
         <div className="flex items-start gap-2 text-sm">

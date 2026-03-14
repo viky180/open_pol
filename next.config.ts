@@ -21,6 +21,15 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: supabaseRemotePatterns,
   },
+  async redirects() {
+    return [
+      {
+        source: '/party/:path*',
+        destination: '/group/:path*',
+        permanent: true,
+      },
+    ];
+  },
   experimental: {
     // Disable client-side router cache to always fetch fresh data
     staleTimes: {

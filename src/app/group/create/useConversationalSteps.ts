@@ -49,28 +49,28 @@ export const STEP_DEFINITIONS: StepDefinition[] = [
     {
         id: 'scope',
         question: 'How big is the impact area?',
-        emoji: '🗺️',
+        emoji: 'MapPin',
         isApplicable: (ctx) => !ctx.parentPartyId && !ctx.forkOfPartyId,
         isComplete: (ctx) => !!ctx.locationScope,
     },
     {
         id: 'issue_selector',
         question: 'Which issue does this national group belong to?',
-        emoji: '🏷️',
+        emoji: 'Tag',
         isApplicable: (ctx) => ctx.locationScope === 'national' && !ctx.parentPartyId && !ctx.forkOfPartyId,
         isComplete: (ctx) => !!(ctx.issueId || ctx.newIssueName.trim()),
     },
     {
         id: 'issue',
         question: "What's your group's specific stance on this issue?",
-        emoji: '💬',
+        emoji: 'MessageCircle',
         isApplicable: () => true,
         isComplete: (ctx) => ctx.issueText.trim().length > 0 && ctx.issueText.length <= 280,
     },
     {
         id: 'scope_details',
         question: 'Which specific location?',
-        emoji: '📌',
+        emoji: 'Pin',
         isApplicable: (ctx) => ctx.locationScope !== 'national',
         isComplete: (ctx) =>
             isScopeLocationValid({
@@ -85,14 +85,14 @@ export const STEP_DEFINITIONS: StepDefinition[] = [
     {
         id: 'category',
         question: 'Pick a category for this group.',
-        emoji: '🏷️',
+        emoji: 'Tag',
         isApplicable: () => true,
         isComplete: () => true,
     },
     {
         id: 'review',
         question: "Here's your group summary.",
-        emoji: '✅',
+        emoji: 'CheckCircle',
         isApplicable: () => true,
         isComplete: () => true,
     },

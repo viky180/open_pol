@@ -1,5 +1,6 @@
 'use client';
 
+import { Check } from 'lucide-react';
 import { type MemberWithVotes } from '@/types/database';
 
 interface OverviewTabProps {
@@ -88,7 +89,7 @@ export function OverviewTab({
                                             disabled={voteLoadingFor !== null}
                                             className={`btn btn-sm ${member.user_id === votedFor ? 'btn-secondary' : 'btn-primary'}`}
                                         >
-                                            {voteLoadingFor === member.user_id ? 'Saving...' : member.user_id === votedFor ? '✓ Current' : 'Trust'}
+                                            {voteLoadingFor === member.user_id ? 'Saving...' : member.user_id === votedFor ? <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Current</span> : 'Trust'}
                                         </button>
                                     </li>
                                 ))}

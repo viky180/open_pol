@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { X } from 'lucide-react';
 import type { MemberWithVotes } from '@/types/database';
 import { TrustSelectionScreen } from '@/components/TrustSelectionScreen';
 
@@ -89,7 +90,7 @@ export function AuthModal({ partyId, onCancel }: AuthModalProps) {
                     </button>
                     <button
                         onClick={() => {
-                            const returnPath = `/party/${partyId}`;
+                            const returnPath = `/group/${partyId}`;
                             router.push(`/auth?returnTo=${encodeURIComponent(returnPath)}`);
                         }}
                         className="btn btn-primary"
@@ -324,7 +325,7 @@ export function TitleImageModal({ issueText, titleImageUrl, onClose }: TitleImag
                 className="absolute right-4 top-4 rounded bg-black/70 px-3 py-1 text-white"
                 onClick={onClose}
             >
-                ✕
+                <X className="w-4 h-4" />
             </button>
             <div className="flex h-full w-full items-center justify-center">
                 <div className="animate-scale-in">
@@ -366,7 +367,7 @@ export function IconPreviewModal({ issueText, iconSvg, iconImageUrl, onClose }: 
                 className="absolute right-4 top-4 rounded bg-black/70 px-3 py-1 text-white"
                 onClick={onClose}
             >
-                ✕
+                <X className="w-4 h-4" />
             </button>
             <div className="flex h-full w-full items-center justify-center">
                 <div className="animate-scale-in">

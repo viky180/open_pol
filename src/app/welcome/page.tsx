@@ -417,7 +417,7 @@ export default function WelcomePage() {
                 } catch { /* best effort */ }
             }
 
-            router.push(`/party/${partyId}`);
+            router.push(`/group/${partyId}`);
             router.refresh();
         } catch (err) {
             setJoinError(err instanceof Error ? err.message : 'Unable to join group');
@@ -764,7 +764,7 @@ export default function WelcomePage() {
                                                         return (
                                                         <div key={party.id} className="rounded-xl border border-border-primary bg-bg-secondary p-3">
                                                             <div className="flex items-start justify-between gap-3">
-                                                                <Link href={`/party/${party.id}`} className="flex-1 min-w-0">
+                                                                <Link href={`/group/${party.id}`} className="flex-1 min-w-0">
                                                                     <h4 className="text-sm font-medium text-text-primary line-clamp-2">{displayName}</h4>
                                                                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                                                                         {party.is_founding_group && (
@@ -803,7 +803,7 @@ export default function WelcomePage() {
                                                             </div>
                                                         </div>
                                                         <Link
-                                                            href={`/party/create?category=${selectedCategory.id}&issue=${encodeURIComponent(issue.issue_text)}&location_scope=national`}
+                                                            href={`/group/create?category=${selectedCategory.id}&issue=${encodeURIComponent(issue.issue_text)}&location_scope=national`}
                                                             className="btn btn-primary btn-sm whitespace-nowrap"
                                                         >
                                                             Create founding group
@@ -822,7 +822,7 @@ export default function WelcomePage() {
 
                                     <div className="mt-6 pt-5 border-t border-border-primary text-center">
                                         <p className="text-text-muted text-sm mb-3">Did not find your group?</p>
-                                        <Link href={`/party/create?category=${selectedCategory.id}`} className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+                                        <Link href={`/group/create?category=${selectedCategory.id}`} className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
                                             Create your own group
                                         </Link>
                                     </div>
@@ -835,7 +835,7 @@ export default function WelcomePage() {
                                         <button type="button" onClick={handleBackToCategories} className="btn btn-secondary">
                                             Try another cause
                                         </button>
-                                        <Link href={`/party/create?category=${selectedCategory.id}`} className="btn btn-primary">
+                                        <Link href={`/group/create?category=${selectedCategory.id}`} className="btn btn-primary">
                                             Create the first group
                                         </Link>
                                     </div>

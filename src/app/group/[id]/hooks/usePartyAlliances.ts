@@ -33,7 +33,7 @@ export function usePartyAlliances({
 
     const handleCreateAlliance = async () => {
         if (!currentUserId) {
-            const returnPath = `/party/${party.id}`;
+            const returnPath = `/group/${party.id}`;
             router.push(`/auth?returnTo=${encodeURIComponent(returnPath)}`);
             return;
         }
@@ -107,7 +107,7 @@ export function usePartyAlliances({
 
     const handleLeaveAlliance = async (allianceId: string) => {
         if (!currentUserId) {
-            const returnPath = `/party/${party.id}`;
+            const returnPath = `/group/${party.id}`;
             router.push(`/auth?returnTo=${encodeURIComponent(returnPath)}`);
             return;
         }

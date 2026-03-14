@@ -44,7 +44,7 @@ export function MeActionsCard({ partyId, partyName }: MeActionsCardProps) {
         <div className="card">
             <h2 className="text-sm font-semibold text-text-secondary mb-4">Actions</h2>
             <div className="flex flex-col gap-3">
-                <Link href={`/party/${partyId}#leader-section`} className="btn btn-primary btn-sm">
+                <Link href={`/group/${partyId}#leader-section`} className="btn btn-primary btn-sm">
                     Manage backing
                 </Link>
                 <button

@@ -1,5 +1,6 @@
 'use client';
 
+import { PartyPopper, Users } from 'lucide-react';
 import type { PartyMilestone } from '@/types/database';
 
 function formatMilestoneTitle(m: PartyMilestone) {
@@ -33,7 +34,7 @@ export function PartyMilestoneFeed({
 
     return (
         <div className="mb-6">
-            <h2 className="text-sm font-semibold text-text-secondary mb-3">🎉 Milestones</h2>
+            <h2 className="text-sm font-semibold text-text-secondary mb-3 flex items-center gap-1"><PartyPopper className="w-4 h-4" /> Milestones</h2>
             <div className="space-y-3">
                 {milestones.map((m) => (
                     <div
@@ -59,7 +60,7 @@ export function PartyMilestoneFeed({
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2 items-center">
                             <span className="badge badge-level-2 border">Collective</span>
-                            <span className="badge border">👥 {m.member_count_at_event}</span>
+                            <span className="badge border flex items-center gap-1"><Users className="w-3 h-3" /> {m.member_count_at_event}</span>
                             <span className="text-xs text-text-muted">
                                 Records collective progress for public legitimacy.
                             </span>

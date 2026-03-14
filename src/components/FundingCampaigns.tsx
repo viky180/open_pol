@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Banknote, Check, X } from 'lucide-react';
 import { DonateModal, DonationLedger } from './DonateModal';
 import type { FundingCampaignWithStats, FundingDonationWithDonor } from '@/types/database';
 
@@ -134,7 +135,7 @@ export function FundingCampaigns({ partyId, isLeader, currentUserId }: FundingCa
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-lg font-semibold text-text-primary">💰 Funding Campaigns</h3>
+                    <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2"><Banknote className="w-5 h-5" /> Funding Campaigns</h3>
                     <p className="text-sm text-text-muted">
                         Support this cause with transparent crowdfunding
                     </p>
@@ -355,13 +356,13 @@ export function FundingCampaigns({ partyId, isLeader, currentUserId }: FundingCa
                                                             onClick={() => handleVerifyDonation(campaign.id, donation.id, true)}
                                                             className="px-3 py-1 text-xs bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
                                                         >
-                                                            ✓ Verify
+                                                            <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Verify</span>
                                                         </button>
                                                         <button
                                                             onClick={() => handleVerifyDonation(campaign.id, donation.id, false)}
                                                             className="px-3 py-1 text-xs bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
                                                         >
-                                                            ✗ Reject
+                                                            <span className="flex items-center gap-1"><X className="w-3 h-3" /> Reject</span>
                                                         </button>
                                                     </div>
                                                 </div>

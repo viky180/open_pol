@@ -30,6 +30,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
         selectedCategory,
         selectedScope,
         activeMembershipPartyId,
+        activeMemberships,
     } = await getDiscoverPageData(supabase, resolvedSearchParams);
 
     return (
@@ -46,6 +47,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             initialSelectedCategory={selectedCategory}
             initialSelectedScope={selectedScope}
             activeMembershipPartyId={activeMembershipPartyId}
+            activeMemberships={activeMemberships}
         />
     );
 }

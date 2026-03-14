@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { MapPin } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 interface UserParty {
@@ -195,8 +196,8 @@ export default function CreateAlliancePage() {
                                         <div>
                                             <p className="text-sm font-medium text-text-primary">{party.issue_text}</p>
                                             {party.location_label && (
-                                                <p className="text-xs text-text-muted mt-0.5">
-                                                    📍 {party.location_label}
+                                                <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
+                                                    <MapPin className="w-3 h-3" /> {party.location_label}
                                                 </p>
                                             )}
                                         </div>

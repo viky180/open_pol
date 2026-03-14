@@ -72,8 +72,8 @@ export function PartyDetailTabs({ activeTab, onChange }: PartyDetailTabsProps) {
         >
             {([
                 ['about', 'About'],
-                ['activity', 'Updates'],
                 ['people', 'Members'],
+                ['activity', 'Updates'],
                 ['petitions', 'Petitions'],
                 ['alliances', 'Alliances'],
             ] as Array<[PartyDetailTabId, string]>).map(([id, label]) => (
@@ -124,7 +124,7 @@ export function AboutTabPanel({
                     <p className="issue-section-kicker">Next level up</p>
                     {currentParentParty ? (
                         <Link
-                            href={`/party/${currentParentParty.id}`}
+                            href={`/group/${currentParentParty.id}`}
                             className="mt-2 inline-flex text-sm font-semibold text-primary hover:underline"
                         >
                             {currentParentParty.issue_text}

@@ -171,7 +171,7 @@ export async function GET() {
                         ? `${answersCount} answer${answersCount !== 1 ? 's' : ''}`
                         : 'No answers yet',
                     timestamp: row.created_at,
-                    linkUrl: `/party/${row.party_id}#questions`,
+                    linkUrl: `/group/${row.party_id}#questions`,
                     meta: { answersCount },
                 });
             });
@@ -196,7 +196,7 @@ export async function GET() {
                     title: `Letter sent: ${row.subject}`,
                     preview: row.recipient_name ? `Sent to ${row.recipient_name}` : 'Letter sent',
                     timestamp: row.sent_at || row.created_at || new Date().toISOString(),
-                    linkUrl: `/party/${row.party_id}`,
+                    linkUrl: `/group/${row.party_id}`,
                 });
             });
         }
@@ -220,7 +220,7 @@ export async function GET() {
                     title: `Milestone: ${threshold} members`,
                     preview: `"${issueText.slice(0, 90)}${issueText.length > 90 ? '...' : ''}" crossed ${threshold} members.`,
                     timestamp: row.created_at,
-                    linkUrl: `/party/${row.party_id}`,
+                    linkUrl: `/group/${row.party_id}`,
                     meta: { threshold, milestoneType: row.milestone_type },
                 });
             });
@@ -246,7 +246,7 @@ export async function GET() {
                     title: `Moved under: ${parentText.slice(0, 60)}${parentText.length > 60 ? '...' : ''}`,
                     preview: `"${childText.slice(0, 80)}${childText.length > 80 ? '...' : ''}" is now in the hierarchy tree.`,
                     timestamp: row.updated_at || row.created_at,
-                    linkUrl: `/party/${row.id}`,
+                    linkUrl: `/group/${row.id}`,
                     meta: { parentPartyId: row.parent_party_id },
                 });
             });
@@ -272,7 +272,7 @@ export async function GET() {
                     title: authorName ? `Post by ${authorName}` : 'Member post',
                     preview: row.content,
                     timestamp: row.created_at,
-                    linkUrl: `/party/${row.party_id}`,
+                    linkUrl: `/group/${row.party_id}`,
                     meta: { authorName },
                 });
             });
@@ -523,7 +523,7 @@ export async function GET() {
                     ? `${answersCount} answer${answersCount !== 1 ? 's' : ''}`
                     : 'No answers yet',
                 timestamp: row.created_at,
-                linkUrl: `/party/${row.party_id}#questions`,
+                linkUrl: `/group/${row.party_id}#questions`,
                 meta: { answersCount },
             });
         });
@@ -552,7 +552,7 @@ export async function GET() {
                 title: `Letter sent: ${row.subject}`,
                 preview: row.recipient_name ? `Sent to ${row.recipient_name}` : 'Letter sent',
                 timestamp: row.sent_at || row.created_at || new Date().toISOString(),
-                linkUrl: `/party/${row.party_id}`,
+                linkUrl: `/group/${row.party_id}`,
             });
         });
     }
@@ -580,7 +580,7 @@ export async function GET() {
                 title: `Milestone: ${threshold} members`,
                 preview: `"${issueText.slice(0, 90)}${issueText.length > 90 ? '...' : ''}" crossed ${threshold} members.`,
                 timestamp: row.created_at,
-                linkUrl: `/party/${row.party_id}`,
+                linkUrl: `/group/${row.party_id}`,
                 meta: { threshold, milestoneType: row.milestone_type },
             });
         });
@@ -611,7 +611,7 @@ export async function GET() {
                 title: `Moved under: ${parentText.slice(0, 60)}${parentText.length > 60 ? '...' : ''}`,
                 preview: `"${childText.slice(0, 80)}${childText.length > 80 ? '...' : ''}" is now in the hierarchy tree.`,
                 timestamp: row.updated_at || row.created_at,
-                linkUrl: `/party/${row.id}`,
+                linkUrl: `/group/${row.id}`,
                 meta: { parentPartyId: row.parent_party_id },
             });
         });
@@ -641,7 +641,7 @@ export async function GET() {
                 title: authorName ? `Post by ${authorName}` : 'Member post',
                 preview: row.content,
                 timestamp: row.created_at,
-                linkUrl: `/party/${row.party_id}`,
+                linkUrl: `/group/${row.party_id}`,
                 meta: { authorName },
             });
         });
@@ -675,7 +675,7 @@ export async function GET() {
                 title: `${memberName} joined`,
                 preview: `Welcome to "${issueText.slice(0, 80)}${issueText.length > 80 ? '...' : ''}"`,
                 timestamp: row.joined_at,
-                linkUrl: `/party/${row.party_id}`,
+                linkUrl: `/group/${row.party_id}`,
                 meta: { memberName, userId: row.user_id },
             });
         });
@@ -712,7 +712,7 @@ export async function GET() {
                 title: `${accepterName} joined via your invite`,
                 preview: `Your invitation was accepted. Welcome them to the group!`,
                 timestamp: row.accepted_at,
-                linkUrl: `/party/${row.party_id}`,
+                linkUrl: `/group/${row.party_id}`,
                 meta: { acceptedBy: row.accepted_by, accepterName },
             });
         });
@@ -743,7 +743,7 @@ export async function GET() {
                 title: `${leaderName} reached ${row.threshold} backers`,
                 preview: `A growing sign of trust in "${issueText.slice(0, 60)}${issueText.length > 60 ? '...' : ''}"`,
                 timestamp: row.created_at,
-                linkUrl: `/party/${row.party_id}`,
+                linkUrl: `/group/${row.party_id}`,
                 meta: { threshold: row.threshold, leaderName, userId: row.user_id },
             });
         });
@@ -774,7 +774,7 @@ export async function GET() {
                 title: 'New group created',
                 preview: `"${row.issue_text.slice(0, 100)}${row.issue_text.length > 100 ? '...' : ''}"`,
                 timestamp: row.created_at,
-                linkUrl: `/party/${row.id}`,
+                linkUrl: `/group/${row.id}`,
                 meta: {
                     creatorName,
                     locationScope: row.location_scope,

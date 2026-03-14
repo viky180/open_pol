@@ -68,7 +68,7 @@ export function GroupHierarchyBreadcrumb({
                                 </span>
                             ) : (
                                 <Link
-                                    href={`/party/${ancestor.id}`}
+                                    href={`/group/${ancestor.id}`}
                                     className="inline-flex items-center gap-1 rounded-full border border-border-primary bg-bg-primary px-2 py-0.5 transition hover:border-accent/30 hover:text-accent"
                                 >
                                     <span aria-hidden="true">{scopeConfig.icon}</span>

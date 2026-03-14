@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Heart } from 'lucide-react';
 
 interface PartyLikeButtonProps {
     partyId: string;
@@ -58,7 +59,7 @@ export function PartyLikeButton({
                 className={`btn btn-sm ${liked ? 'btn-danger' : 'btn-secondary'}`}
                 title={liked ? 'Unlike this party' : 'Like this party'}
             >
-                {loading ? '...' : liked ? '♥ Liked' : '♡ Like'}{showCount ? ` (${count})` : ''}
+                {loading ? '...' : <span className="flex items-center gap-1"><Heart className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />{liked ? 'Liked' : 'Like'}{showCount ? ` (${count})` : ''}</span>}
             </button>
             {error && <div className="text-xs text-warning">{error}</div>}
         </div>

@@ -23,6 +23,7 @@ import {
 import { PostJoinCTABanner } from './components/PostJoinCTABanner';
 import { getProgressHint, getProgressTarget, InfoTooltip } from './components/PartyDetailShared';
 import { GroupHierarchyBreadcrumb } from '@/components/GroupHierarchyBreadcrumb';
+import { useToast } from '@/components/ToastContext';
 import { GroupIconBadge } from './components/PartyPrimitives';
 import {
     AboutTabPanel,
@@ -112,6 +113,7 @@ interface PartyDetailClientProps {
     isCurrentUserLeader: boolean;
     issueId?: string | null;
     issueName?: string | null;
+    userStateName?: string | null;
 }
 
 type StatusTone = 'success' | 'error' | 'info';
@@ -270,12 +272,14 @@ function PartyDetailClientInner({
     levelLeaderMeta,
     activityItems,
     petitionCampaigns,
+    childGroups,
     isCurrentUserLeader,
     issueId,
     issueName,
+    userStateName,
 }: PartyDetailClientProps) {
     const supabase = useMemo(() => createClient(), []);
-    const [statusMessage, setStatusMessage] = useState<{ tone: StatusTone; text: string } | null>(null);
+    const { showToast } = useToast();
     const [autoProvisionNotice, setAutoProvisionNotice] = useState<AutoProvisionNotice | null>(null);
     const [showPostJoinBanner, setShowPostJoinBanner] = useState(false);
     const [showTrustModal, setShowTrustModal] = useState(false);
@@ -291,7 +295,7 @@ function PartyDetailClientInner({
     const moreMenuRef = useRef<HTMLDivElement | null>(null);
     const router = useRouter();
 
-    const showStatusMessage = (tone: StatusTone, text: string) => setStatusMessage({ tone, text });
+    const showStatusMessage = (tone: StatusTone, text: string) => showToast(tone, text);
     const handleRefresh = () => router.refresh();
 
     // Hooks
@@ -574,7 +578,7 @@ function PartyDetailClientInner({
 
     const handleLikeToggle = async () => {
         if (!currentUserId) {
-            router.push(`/auth?returnTo=${encodeURIComponent(`/party/${party.id}`)}`);
+            router.push(`/auth?returnTo=${encodeURIComponent(`/group/${party.id}`)}`);
             return;
         }
         if (likeLoading) return;
@@ -595,6 +599,7 @@ function PartyDetailClientInner({
                 const payload = await res.json().catch(() => ({}));
                 throw new Error(payload?.error || 'Could not update like status');
             }
+            showStatusMessage('success', nextLiked ? 'Group saved.' : 'Removed from saved groups.');
         } catch (error) {
             setLikedByMe(previousLiked);
             setLikeCountLive(previousCount);
@@ -709,26 +714,14 @@ function PartyDetailClientInner({
     return (
         <div className="issue-shell" style={{ maxWidth: '1080px' }}>
 
-            {/* Status toast */}
-            {statusMessage && (
-                <div
-                    role="status"
-                    aria-live="polite"
-                    className={`mb-4 rounded-2xl border px-3 py-3 text-sm animate-fade-in ${statusMessage.tone === 'error'
-                        ? 'border-warning/20 bg-warning/10 text-warning'
-                        : statusMessage.tone === 'success'
-                            ? 'border-success/20 bg-success/10 text-success'
-                            : 'border-border-primary bg-bg-card text-text-secondary'
-                        }`}
-                >
-                    {statusMessage.text}
-                </div>
-            )}
-
             {(showPostJoinBanner || autoProvisionNotice) && (
                 <PostJoinCTABanner
                     hasVoted={!!votedFor}
                     onCastVote={() => setShowTrustModal(true)}
+                    onInvite={handleInviteFriends}
+                    votingLocked={foundingElectionLocked}
+                    votingLockedThreshold={foundingElectionMemberThreshold}
+                    memberCount={memberCountLive}
                     autoProvisionLinks={autoProvisionNotice ? [...autoProvisionNotice.created, ...autoProvisionNotice.reused] : []}
                     missingLocationScopes={autoProvisionNotice?.skipped.filter(s => s.reason === 'missing_location').map(s => s.scope as 'state' | 'district' | 'village') ?? []}
                     electWizardUrl={(() => {
@@ -787,14 +780,35 @@ function PartyDetailClientInner({
                                 </button>
                                 {showMoreMenu && (
                                     <div className="absolute right-0 top-12 z-20 w-48 overflow-hidden rounded-2xl border border-border-primary bg-bg-primary text-text-primary shadow-xl">
-                                        {party.location_scope !== 'village' && (
-                                            <Link href={createChildHref} className={MENU_ITEM_CLS} onClick={() => setShowMoreMenu(false)}>
-                                                Start local chapter
-                                            </Link>
+                                        {optimisticIsMember && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setShowMoreMenu(false); setShowTrustModal(true); }}
+                                                    className={`w-full text-left ${MENU_ITEM_CLS}`}
+                                                >
+                                                    Cast trust vote
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setShowMoreMenu(false); setShowLeaveModal(true); }}
+                                                    className={`w-full text-left text-red-400 ${MENU_ITEM_CLS}`}
+                                                >
+                                                    Leave group
+                                                </button>
+                                                <div className="border-t border-border-primary/60" />
+                                            </>
                                         )}
                                         <Link href={createForkHref} className={MENU_ITEM_CLS} onClick={() => setShowMoreMenu(false)}>
                                             {alternateGroupLabel}
                                         </Link>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setShowMoreMenu(false); void handleShare(); }}
+                                            className={`w-full text-left ${MENU_ITEM_CLS}`}
+                                        >
+                                            Share
+                                        </button>
                                         <button type="button" onClick={handleReport} className={`w-full text-left ${MENU_ITEM_CLS}`}>
                                             Report group
                                         </button>
@@ -866,35 +880,38 @@ function PartyDetailClientInner({
                                     <span>One group per level — state, district, and village can each be joined separately.</span>
                                 </div>
                             )}
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="mt-3 flex items-center gap-2">
                                 {optimisticIsMember ? (
-                                    <>
-                                        <button type="button" className="btn btn-secondary btn-sm text-red-400" onClick={() => setShowLeaveModal(true)}>
-                                            Leave group
-                                        </button>
-                                        <button type="button" className="btn btn-primary btn-sm" onClick={handleInviteFriends}>
-                                            Invite others
-                                        </button>
-                                    </>
+                                    <button type="button" className="btn btn-primary btn-sm" onClick={handleInviteFriends}>
+                                        Invite others
+                                    </button>
                                 ) : (
                                     <>
                                         <button type="button" className="btn btn-primary btn-sm" onClick={handleJoinClick} disabled={joinDisabled || joinLoading}>
-                                            {joinLoading ? 'Joining...' : 'Join group'}
+                                            {joinLoading ? 'Joining...' : joinDisabled ? 'One group only' : 'Join group'}
                                         </button>
-                                        <button type="button" className="btn btn-secondary btn-sm" onClick={handleLikeToggle} disabled={likeLoading}>
-                                            {likeLoading ? '❤️ Saving...' : likedByMe ? '❤️ Liked' : '🤍 Like'}
+                                        <button
+                                            type="button"
+                                            onClick={handleLikeToggle}
+                                            disabled={likeLoading}
+                                            aria-label={likedByMe ? 'Unlike this group' : 'Save this group'}
+                                            title={likedByMe ? 'Saved' : 'Save'}
+                                            className="issue-hero-button"
+                                        >
+                                            {likeLoading ? '…' : likedByMe ? '❤️' : '🤍'}
                                         </button>
                                     </>
                                 )}
                             </div>
                             {!optimisticIsMember && hasMembershipElsewhere && sameScopeConflictPartyId && (
-                                <div className="mt-3 rounded-xl border border-white/15 bg-white/8 px-3 py-2 text-xs text-white/80">
-                                    You already have a {locationScope.label.toLowerCase()} group
-                                    {sameScopeConflictIssueText ? ` for "${sameScopeConflictIssueText}"` : ''}.{' '}
-                                    <Link href={`/party/${sameScopeConflictPartyId}`} className="underline">
-                                        View it
-                                    </Link>{' '}
-                                    or leave it first to join this one.
+                                <div className="mt-3 rounded-xl border border-white/15 bg-white/8 px-3 py-2 text-xs text-white/90">
+                                    <p className="font-medium text-[var(--iux-ochre2)]">You already have an active membership at the {locationScope.label.toLowerCase()} level for this issue.</p>
+                                    <p className="mt-1 opacity-80">
+                                        <Link href={`/group/${sameScopeConflictPartyId}`} className="underline font-medium hover:text-white">
+                                            View your current group
+                                        </Link>
+                                        {' '}or leave it first to join this one. You can also save this group to your list.
+                                    </p>
                                 </div>
                             )}
                         </div>
@@ -939,19 +956,90 @@ function PartyDetailClientInner({
                             party={party}
                             currentParentParty={currentParentParty}
                         />
+
+                        {/* Chapters section — only for national groups with children */}
+                        {party.location_scope === 'national' && childGroups.length > 0 && (() => {
+                            const userChapter = userStateName
+                                ? childGroups.find(g => g.state_name === userStateName)
+                                : null;
+                            const otherChapters = childGroups
+                                .filter(g => g !== userChapter)
+                                .sort((a, b) => (b.memberCount - a.memberCount));
+                            return (
+                                <section className="issue-card">
+                                    <SectionHeader
+                                        kicker="State chapters"
+                                        heading="Browse chapters by state"
+                                    />
+                                    <ul className="mt-4 divide-y divide-border-primary/60">
+                                        {userChapter && (
+                                            <li>
+                                                <Link
+                                                    href={`/group/${userChapter.id}`}
+                                                    className="flex items-center justify-between gap-3 py-3 hover:bg-bg-secondary/50 -mx-1 px-1 rounded-lg transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <GroupIconBadge
+                                                            name={userChapter.issue_text}
+                                                            iconSvg={userChapter.icon_svg || null}
+                                                            iconImageUrl={userChapter.icon_image_url || null}
+                                                            size={28}
+                                                        />
+                                                        <span className="text-sm font-medium text-text-primary truncate">{userChapter.state_name || userChapter.issue_text}</span>
+                                                        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Your state</span>
+                                                    </div>
+                                                    <span className="shrink-0 text-xs text-text-muted">{userChapter.memberCount.toLocaleString('en-IN')} members</span>
+                                                </Link>
+                                            </li>
+                                        )}
+                                        {otherChapters.map(chapter => (
+                                            <li key={chapter.id}>
+                                                <Link
+                                                    href={`/group/${chapter.id}`}
+                                                    className="flex items-center justify-between gap-3 py-3 hover:bg-bg-secondary/50 -mx-1 px-1 rounded-lg transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <GroupIconBadge
+                                                            name={chapter.issue_text}
+                                                            iconSvg={chapter.icon_svg || null}
+                                                            iconImageUrl={chapter.icon_image_url || null}
+                                                            size={28}
+                                                        />
+                                                        <span className="text-sm text-text-primary truncate">{chapter.state_name || chapter.issue_text}</span>
+                                                    </div>
+                                                    <span className="shrink-0 text-xs text-text-muted">{chapter.memberCount.toLocaleString('en-IN')} members</span>
+                                                </Link>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <div className="mt-4 border-t border-border-primary/60 pt-3">
+                                        <Link href={createChildHref} className="text-sm text-primary hover:underline">
+                                            + Start a chapter in your state
+                                        </Link>
+                                    </div>
+                                </section>
+                            );
+                        })()}
                     </div>
 
                     <div className="space-y-4 lg:sticky lg:top-24">
 
-                        {/* Card 1: This group's own internal leader */}
-                        <section className="issue-card">
+                        {/* Leadership: group leader + level representative merged */}
+                        <section className={`issue-card ${isLeadingInScope ? 'border-success/30 bg-success/5' : ''}`}>
                             <SectionHeader
-                                kicker="Group leadership"
-                                heading={foundingElectionLocked ? 'Leadership starts at 50 members' : 'Chosen by members of this group'}
-                                tooltip={foundingElectionLocked
-                                    ? `This founding group has no leader until ${foundingElectionMemberThreshold} members join. After that, members can use trust votes to choose one.`
-                                    : 'Members use trust votes to choose one leader for this group. You can change your vote at any time.'}
+                                kicker="Leadership"
+                                heading="Group leader & level representative"
+                                tooltip={
+                                    foundingElectionLocked
+                                        ? `This founding group has no leader until ${foundingElectionMemberThreshold} members join. The level representative comes from whichever group has the most members at this level.`
+                                        : 'Members use trust votes to choose their group leader. The level representative is the leader of whichever group has the most members at this level.'
+                                }
                             />
+
+                            {/* Row 1: this group's leader */}
+                            <p className="mt-3 text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                This group&apos;s leader
+                            </p>
                             {groupLeaderMeta.leaderId ? (
                                 <LeaderSummaryRow
                                     displayName={groupLeaderMeta.leaderName || 'Anonymous leader'}
@@ -963,54 +1051,43 @@ function PartyDetailClientInner({
                                             onClick={handleSeeMembers}
                                             className="btn btn-secondary btn-sm shrink-0"
                                         >
-                                            Choose leader
+                                            Choose
                                         </button>
                                     )}
                                 />
                             ) : (
-                                <NoLeaderCard className="mt-3">
+                                <NoLeaderCard className="mt-2">
                                     {foundingElectionLocked
-                                        ? `No leader yet. Voting starts automatically when this founding group reaches ${foundingElectionMemberThreshold} members.`
-                                        : <>
-                                            No trust votes yet. Be the first to back a member of this group.{' '}
-                                            <button type="button" onClick={handleSeeMembers} className="underline text-accent">
-                                                View members
-                                            </button>
-                                        </>}
+                                        ? `Voting starts at ${foundingElectionMemberThreshold} members.`
+                                        : <>No trust votes yet.{' '}<button type="button" onClick={handleSeeMembers} className="underline text-accent">View members</button></>}
                                 </NoLeaderCard>
                             )}
-                        </section>
 
-                        {/* Card 2: Level-wide leader (from the most-membership group) */}
-                        <section className={`issue-card ${isLeadingInScope ? 'border-success/30 bg-success/5' : ''}`}>
-                            <SectionHeader
-                                kicker={`${locationScope.label} representative`}
-                                heading={isLeadingInScope ? 'This group speaks for this level' : 'Who speaks for this level'}
-                                tooltip={isLeadingInScope
-                                    ? `This group has the most members at the ${locationScope.label.toLowerCase()} level, so its leader speaks for this level.`
-                                    : 'At each level, the group with the most members provides the person who speaks for this level.'}
-                            />
-                            <div className="mt-4">
-                                {levelLeaderMeta.leaderId ? (
-                                    <LeaderSummaryRow
-                                        displayName={levelLeaderMeta.leaderName || 'Anonymous'}
-                                        avatarSeed={levelLeaderMeta.leaderName}
-                                        avatarToneClassName={isLeadingInScope ? 'bg-success/20' : 'bg-primary'}
-                                        subtitle={isLeadingInScope
-                                            ? `${trustVoteLabel(levelLeaderMeta.electedBy)} from this group`
-                                            : 'Chosen inside the largest group at this level'}
-                                        aside={isLeadingInScope ? (
-                                            <span className="rounded-full border border-success/20 bg-success/10 px-2 py-1 text-[11px] font-medium text-success shrink-0">
-                                                Leading
-                                            </span>
-                                        ) : null}
-                                    />
-                                ) : (
-                                    <NoLeaderCard>
-                                        No representative yet. Whichever group reaches the most members here will send one.
-                                    </NoLeaderCard>
-                                )}
-                            </div>
+                            <div className="my-4 border-t border-border-primary/60" />
+
+                            {/* Row 2: level representative */}
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-text-muted">
+                                {locationScope.label} representative
+                            </p>
+                            {levelLeaderMeta.leaderId ? (
+                                <LeaderSummaryRow
+                                    displayName={levelLeaderMeta.leaderName || 'Anonymous'}
+                                    avatarSeed={levelLeaderMeta.leaderName}
+                                    avatarToneClassName={isLeadingInScope ? 'bg-success/20' : 'bg-primary'}
+                                    subtitle={isLeadingInScope
+                                        ? `${trustVoteLabel(levelLeaderMeta.electedBy)} from this group`
+                                        : 'Chosen inside the largest group at this level'}
+                                    aside={isLeadingInScope ? (
+                                        <span className="rounded-full border border-success/20 bg-success/10 px-2 py-1 text-[11px] font-medium text-success shrink-0">
+                                            Leading
+                                        </span>
+                                    ) : null}
+                                />
+                            ) : (
+                                <NoLeaderCard className="mt-2">
+                                    No representative yet. The group with the most members here will send one.
+                                </NoLeaderCard>
+                            )}
                         </section>
 
                         <section className="issue-card">

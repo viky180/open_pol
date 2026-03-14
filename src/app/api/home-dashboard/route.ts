@@ -350,7 +350,7 @@ export async function GET(request?: NextRequest) {
                     type: 'trust_expiring',
                     label: `Your trust vote in ${groupName} expires in ${Math.max(0, expiresInDays)} day${Math.abs(expiresInDays) === 1 ? '' : 's'}`,
                     urgency: 'high',
-                    linkUrl: `/party/${vote.party_id}`,
+                    linkUrl: `/group/${vote.party_id}`,
                     meta: { expiresAt: vote.expires_at },
                 });
             });

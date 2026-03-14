@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Hourglass, Eye, CheckCircle, type LucideProps } from 'lucide-react';
 
 interface Petition {
     id: string;
@@ -22,10 +23,10 @@ interface PetitionParentProps {
     isParentView?: boolean;
 }
 
-const STATUS_CONFIG = {
-    pending: { label: 'Pending', color: 'bg-amber-500/15 text-amber-600 border-amber-500/30', icon: '⏳' },
-    acknowledged: { label: 'Acknowledged', color: 'bg-blue-500/15 text-blue-600 border-blue-500/30', icon: '👁️' },
-    addressed: { label: 'Addressed', color: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30', icon: '✅' },
+const STATUS_CONFIG: Record<string, { label: string; color: string; Icon: React.ComponentType<LucideProps> }> = {
+    pending: { label: 'Pending', color: 'bg-amber-500/15 text-amber-600 border-amber-500/30', Icon: Hourglass },
+    acknowledged: { label: 'Acknowledged', color: 'bg-blue-500/15 text-blue-600 border-blue-500/30', Icon: Eye },
+    addressed: { label: 'Addressed', color: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30', Icon: CheckCircle },
 };
 
 export function PetitionParent({
@@ -178,7 +179,7 @@ export function PetitionParent({
                                 <div className="flex items-start justify-between gap-2">
                                     <p className="text-sm text-text-primary flex-1">{petition.petition_text}</p>
                                     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap ${config.color}`}>
-                                        {config.icon} {config.label}
+                                        <config.Icon className="w-3 h-3" /> {config.label}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
@@ -197,17 +198,17 @@ export function PetitionParent({
                                                 <button
                                                     type="button"
                                                     onClick={() => handleStatusUpdate(petition.id, 'acknowledged')}
-                                                    className="btn btn-secondary btn-sm text-xs"
+                                                    className="btn btn-secondary btn-sm text-xs flex items-center gap-1"
                                                 >
-                                                    👁️ Acknowledge
+                                                    <Eye className="w-3 h-3" /> Acknowledge
                                                 </button>
                                             )}
                                             <button
                                                 type="button"
                                                 onClick={() => handleStatusUpdate(petition.id, 'addressed')}
-                                                className="btn btn-secondary btn-sm text-xs"
+                                                className="btn btn-secondary btn-sm text-xs flex items-center gap-1"
                                             >
-                                                ✅ Mark addressed
+                                                <CheckCircle className="w-3 h-3" /> Mark addressed
                                             </button>
                                         </div>
                                     )}

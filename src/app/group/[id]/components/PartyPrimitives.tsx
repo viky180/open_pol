@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import { Trophy } from 'lucide-react';
 
 // ── Icon helpers ──────────────────────────────────────────────────────────────
 
@@ -169,7 +170,7 @@ export function GroupMiniCard({ group, isWinner, isSelf }: GroupMiniCardProps) {
         <div className={`relative flex flex-col gap-2 rounded-xl border p-3 transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${isSelf ? 'border-primary/40 bg-primary/5 ring-1 ring-primary/20' : 'border-border-primary bg-bg-card'}`}>
             {isWinner && (
                 <span className="absolute -top-2 -right-2 inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-600">
-                    🏆 Winner
+                    <Trophy className="w-3 h-3" /> Winner
                 </span>
             )}
             <div className="flex items-center gap-2">
@@ -183,7 +184,7 @@ export function GroupMiniCard({ group, isWinner, isSelf }: GroupMiniCardProps) {
     );
 
     return isSelf ? <div>{inner}</div> : (
-        <Link href={`/party/${group.id}`} className="block no-underline">
+        <Link href={`/group/${group.id}`} className="block no-underline">
             {inner}
         </Link>
     );
@@ -192,7 +193,7 @@ export function GroupMiniCard({ group, isWinner, isSelf }: GroupMiniCardProps) {
 // ── EmptyStateCard ────────────────────────────────────────────────────────────
 
 interface EmptyStateCardProps {
-    icon: string;
+    icon: React.ReactNode;
     title: string;
     description: string;
     actionLabel?: string;

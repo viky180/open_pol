@@ -12,8 +12,9 @@ import type {
     ExploreScope,
     HierarchyChild,
 } from '@/types/discover';
-import type { DiscoverIssueItem } from '@/lib/discover/getDiscoverPageData';
+import type { DiscoverIssueItem, UserMembership } from '@/lib/discover/getDiscoverPageData';
 import { useLocation } from '@/components/LocationContext';
+import { useToast } from '@/components/ToastContext';
 
 type DiscoverExploreClientProps = {
     activeView: 'groups' | 'alliances' | 'issues';
@@ -28,6 +29,7 @@ type DiscoverExploreClientProps = {
     initialSelectedCategory: string;
     initialSelectedScope: ExploreScope;
     activeMembershipPartyId: string | null;
+    activeMemberships: UserMembership[];
 };
 
 const ISSUE_PILLS = [
@@ -60,21 +62,6 @@ function buildScopeOptions(location: {
     ];
 }
 
-function getNearestScope(location: {
-    state?: string | null;
-    district?: string | null;
-    block?: string | null;
-    corporation?: string | null;
-    ward?: string | null;
-    panchayat?: string | null;
-    village?: string | null;
-    locality?: string | null;
-} | null): ExploreScope {
-    if (location?.village || location?.locality) return 'village';
-    if (location?.district) return 'district';
-    if (location?.state) return 'state';
-    return 'india';
-}
 
 function getRelativeTime(dateString: string | null | undefined): string {
     if (!dateString) return 'Today';
@@ -146,11 +133,13 @@ export function DiscoverExploreClient({
     initialSelectedCategory,
     initialSelectedScope,
     activeMembershipPartyId,
+    activeMemberships: initialActiveMemberships,
 }: DiscoverExploreClientProps) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { userLocation } = useLocation();
+    const { showToast } = useToast();
     const [isPending, startTransition] = useTransition();
 
     const [searchQuery, setSearchQuery] = useState(initialQuery);
@@ -165,6 +154,7 @@ export function DiscoverExploreClient({
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const [membershipPartyId, setMembershipPartyId] = useState<string | null>(activeMembershipPartyId);
+    const [userMemberships, setUserMemberships] = useState<UserMembership[]>(initialActiveMemberships);
     const [joiningIds, setJoiningIds] = useState<Set<string>>(new Set());
     const [likingIds, setLikingIds] = useState<Set<string>>(new Set());
     const [justJoinedPartyId, setJustJoinedPartyId] = useState<string | null>(null);
@@ -179,8 +169,9 @@ export function DiscoverExploreClient({
         setHasMorePages(hasMore);
         setNextOffset(initialOffset + limit);
         setMembershipPartyId(activeMembershipPartyId);
+        setUserMemberships(initialActiveMemberships);
         setIsLoadingMore(false);
-    }, [initialGroups, hasMore, initialOffset, limit, activeMembershipPartyId]);
+    }, [initialGroups, hasMore, initialOffset, limit, activeMembershipPartyId, initialActiveMemberships]);
 
     useEffect(() => {
         setSearchQuery(initialQuery);
@@ -258,9 +249,6 @@ export function DiscoverExploreClient({
         updateQueryParams({ category: null });
     };
 
-    const handleNearMeToggle = () => {
-        handleScopeChange(getNearestScope(userLocation));
-    };
 
     const visibleGroups = useMemo(
         () => groups.filter((item) => matchesIssue(item, selectedIssue, selectedCategoryId)),
@@ -364,9 +352,26 @@ export function DiscoverExploreClient({
         )));
 
         try {
-            await fetch(`/api/parties/${item.party.id}/like`, {
+            const response = await fetch(`/api/parties/${item.party.id}/like`, {
                 method: currentlyLiked ? 'DELETE' : 'POST',
             });
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload?.error || (currentlyLiked ? 'Could not remove saved group.' : 'Could not save group.'));
+            }
+            showToast('success', currentlyLiked ? 'Removed from saved groups.' : 'Group saved.');
+        } catch (error) {
+            setGroups((prev) => prev.map((group) => (
+                group.party.id === item.party.id
+                    ? {
+                        ...group,
+                        likedByMe: currentlyLiked,
+                        likeCount: Math.max(0, group.likeCount + (currentlyLiked ? 1 : -1)),
+                    }
+                    : group
+            )));
+            const message = error instanceof Error ? error.message : (currentlyLiked ? 'Could not remove saved group.' : 'Could not save group.');
+            showToast('error', message === 'Unauthorized' ? 'Sign in to save groups.' : message);
         } finally {
             setLikingIds((prev) => {
                 const next = new Set(prev);
@@ -382,7 +387,10 @@ export function DiscoverExploreClient({
 
         try {
             const response = await fetch(`/api/parties/${item.party.id}/join`, { method: 'POST' });
-            if (!response.ok) return;
+            if (!response.ok) {
+                const payload = await response.json().catch(() => ({}));
+                throw new Error(payload?.error || 'Could not join this group.');
+            }
             const payload = await response.json().catch(() => ({}));
             if (payload?.autoProvision && typeof window !== 'undefined') {
                 try {
@@ -393,11 +401,23 @@ export function DiscoverExploreClient({
                 } catch { /* best effort */ }
             }
             setMembershipPartyId(item.party.id);
+            setUserMemberships((prev) => [
+                ...prev,
+                {
+                    party_id: item.party.id,
+                    location_scope: item.party.location_scope || null,
+                    issue_id: item.party.issue_id || null
+                }
+            ]);
             setJustJoinedPartyId(item.party.id);
             setGroups((prev) => prev.map((group) => ({
                 ...group,
                 joinedByMe: group.party.id === item.party.id,
             })));
+            showToast('success', 'Joined group.');
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Could not join this group.';
+            showToast('error', message === 'Unauthorized' ? 'Sign in to join this group.' : message);
         } finally {
             setJoiningIds((prev) => {
                 const next = new Set(prev);
@@ -435,7 +455,7 @@ export function DiscoverExploreClient({
                         ) : (
                             <span className="inline-flex h-5 w-5 items-center justify-center text-xs text-text-muted">↳</span>
                         )}
-                        <Link href={`/party/${child.party.id}`} className="flex flex-1 items-center justify-between py-2">
+                        <Link href={`/group/${child.party.id}`} className="flex flex-1 items-center justify-between py-2">
                             <div>
                                 <p className="text-sm font-medium text-text-primary">{child.party.issue_text}</p>
                                 <p className="text-xs text-text-muted">{parentName ? `Part of ${parentName}` : 'Local chapter'}</p>
@@ -465,7 +485,7 @@ export function DiscoverExploreClient({
                                 Scan what is gathering members near you, compare competing issue groups, and start a new chapter when the current options do not fit.
                             </p>
                         </div>
-                        <Link href="/party/create" className="btn btn-primary shrink-0">
+                        <Link href="/group/create" className="btn btn-primary shrink-0">
                             Create a group
                         </Link>
                     </div>
@@ -475,10 +495,10 @@ export function DiscoverExploreClient({
                     <div className="editorial-pill-group">
                         <button
                             type="button"
-                            onClick={() => handleViewChange('groups')}
-                            className={`editorial-pill ${activeView === 'groups' ? 'editorial-pill--active' : ''}`}
+                            onClick={() => handleViewChange('issues')}
+                            className={`editorial-pill ${activeView === 'issues' ? 'editorial-pill--active' : ''}`}
                         >
-                            Groups
+                            Issues
                         </button>
                         <button
                             type="button"
@@ -489,10 +509,10 @@ export function DiscoverExploreClient({
                         </button>
                         <button
                             type="button"
-                            onClick={() => handleViewChange('issues')}
-                            className={`editorial-pill ${activeView === 'issues' ? 'editorial-pill--active' : ''}`}
+                            onClick={() => handleViewChange('groups')}
+                            className={`editorial-pill ${activeView === 'groups' ? 'editorial-pill--active' : ''}`}
                         >
-                            Issues
+                            Groups
                         </button>
                     </div>
                 </div>
@@ -574,13 +594,7 @@ export function DiscoverExploreClient({
                         </select>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={handleNearMeToggle}
-                        className="editorial-chip editorial-chip--active"
-                    >
-                        Use my nearest scope
-                    </button>
+
                 </div>
 
                 {isPending && (
@@ -595,8 +609,14 @@ export function DiscoverExploreClient({
                                 const isExpanded = expandedIds.has(item.party.id);
                                 const hasChildren = item.hasChildren || (resolvedChildren && resolvedChildren.length > 0);
                                 const isVoiceExpanded = expandedVoicePathIds.has(item.party.id);
-                                const joinDisabled = Boolean(membershipPartyId && membershipPartyId !== item.party.id);
-                                const joined = membershipPartyId === item.party.id || item.joinedByMe;
+                                
+                                const joined = membershipPartyId === item.party.id || item.joinedByMe || userMemberships.some(m => m.party_id === item.party.id);
+                                const conflictMembership = userMemberships.find(m => 
+                                    m.party_id !== item.party.id && 
+                                    m.location_scope === item.party.location_scope && 
+                                    m.issue_id === item.party.issue_id
+                                );
+                                const joinDisabled = Boolean(conflictMembership);
 
                                 return (
                                     <article key={item.party.id} className="card p-4">
@@ -632,10 +652,10 @@ export function DiscoverExploreClient({
                                                 <p className="font-semibold text-accent">Joined! Now elect a leader.</p>
                                                 <p className="mt-1 text-text-secondary text-xs">Cast your trust vote so this group has a representative at the {getLevelBadge(item).toLowerCase()} level.</p>
                                                 <div className="mt-3 flex flex-wrap gap-2">
-                                                    <Link href={`/party/${item.party.id}?action=vote`} className="btn btn-primary btn-sm">
+                                                    <Link href={`/group/${item.party.id}?action=vote`} className="btn btn-primary btn-sm">
                                                         Cast trust vote
                                                     </Link>
-                                                    <Link href={`/party/${item.party.id}`} className="btn btn-secondary btn-sm">
+                                                    <Link href={`/group/${item.party.id}`} className="btn btn-secondary btn-sm">
                                                         View group
                                                     </Link>
                                                 </div>
@@ -651,7 +671,7 @@ export function DiscoverExploreClient({
                                                         onClick={() => handleJoin(item)}
                                                         className="btn btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-50"
                                                     >
-                                                        {joined ? 'Open group' : joiningIds.has(item.party.id) ? 'Joining...' : 'Join group'}
+                                                        {joined ? 'Open group' : joiningIds.has(item.party.id) ? 'Joining...' : joinDisabled ? 'One group only' : 'Join group'}
                                                     </button>
                                                 )}
                                                 <button
@@ -691,14 +711,14 @@ export function DiscoverExploreClient({
                                                 >
                                                     Start local chapter
                                                 </Link>
-                                                <Link href={`/party/${item.party.id}`} className="btn btn-ghost btn-sm">
+                                                <Link href={`/group/${item.party.id}`} className="btn btn-ghost btn-sm">
                                                     View details
                                                 </Link>
                                             </div>
                                         </div>
                                         {joinDisabled && !joined && (
                                             <p className="mt-2 text-xs text-text-muted">
-                                                You already have an active membership at this level. Save this group or compare it first.
+                                                You already have an active membership at the {item.party.location_scope?.replace('panchayat', 'ward')} level for this issue. Save this group or compare it first.
                                             </p>
                                         )}
 
@@ -742,7 +762,7 @@ export function DiscoverExploreClient({
                                     <path d="M52 110h56" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
                                 </svg>
                                 <p className="text-base font-semibold text-text-primary">No groups found for &quot;{selectedIssue === 'All' ? (searchQuery || 'your search') : selectedIssue}&quot; in {selectedScopeLabel.toLowerCase()}.</p>
-                                <Link href="/party/create" className="editorial-link mt-3 inline-flex text-sm font-semibold">
+                                <Link href="/group/create" className="editorial-link mt-3 inline-flex text-sm font-semibold">
                                     Create the first group
                                 </Link>
                             </div>
@@ -784,7 +804,7 @@ export function DiscoverExploreClient({
                         ) : (
                             <div className="empty-state p-8">
                                 <p className="text-base font-semibold text-text-primary">No issues created yet</p>
-                                <Link href="/party/create?location_scope=national" className="editorial-link mt-3 inline-flex text-sm font-semibold">
+                                <Link href="/group/create?location_scope=national" className="editorial-link mt-3 inline-flex text-sm font-semibold">
                                     Start the first national group
                                 </Link>
                             </div>

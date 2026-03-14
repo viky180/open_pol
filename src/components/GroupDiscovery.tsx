@@ -2,9 +2,11 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { Search } from 'lucide-react';
 import type { Party, Category, LocationScope } from '@/types/database';
 import { LOCATION_SCOPE_LEVELS, getLocationScopeConfig, getPartyLocationLabel } from '@/types/database';
 import { createPartyUrl } from '@/lib/createPartyUrl';
+import { LocationScopeIcon } from '@/lib/locationIcons';
 
 interface GroupItem {
     party: Party;
@@ -284,7 +286,7 @@ export function GroupDiscovery({
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                             </svg>
-                                            {getLocationScopeConfig(party.location_scope || 'district').icon} {getLocationScopeConfig(party.location_scope || 'district').label}
+                                            <LocationScopeIcon iconName={getLocationScopeConfig(party.location_scope || 'district').icon} className="w-3.5 h-3.5" /> {getLocationScopeConfig(party.location_scope || 'district').label}
                                             <span className="ml-1 text-primary">
                                                 ({getPartyLocationLabel(party)})
                                             </span>
@@ -328,7 +330,7 @@ export function GroupDiscovery({
                                         + Local chapter
                                     </Link>
                                     <Link
-                                        href={`/party/${party.id}`}
+                                        href={`/group/${party.id}`}
                                         className="btn btn-primary btn-sm whitespace-nowrap"
                                     >
                                         View group
@@ -340,7 +342,7 @@ export function GroupDiscovery({
                 </div>
             ) : (
                 <div className="empty-state py-16">
-                    <div className="text-4xl mb-2 opacity-60">🔍</div>
+                    <div className="mb-2 opacity-60 flex justify-center"><Search className="w-10 h-10" /></div>
                     <p className="text-text-primary font-medium">No groups match your search</p>
                     <p className="text-text-muted text-sm mt-1">
                         Try adjusting your filters or search terms
@@ -355,7 +357,7 @@ export function GroupDiscovery({
                                 Clear filters
                             </button>
                         )}
-                        <Link href="/party/create" className="btn btn-primary btn-sm">
+                        <Link href="/group/create" className="btn btn-primary btn-sm">
                             Create a new group
                         </Link>
                     </div>

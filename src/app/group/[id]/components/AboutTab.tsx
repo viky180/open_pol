@@ -1,5 +1,6 @@
 'use client';
 
+import { Check } from 'lucide-react';
 import type { Party, QAMetrics } from '@/types/database';
 import { getProgressTarget, getProgressHint, StatTile } from './PartyDetailShared';
 
@@ -43,7 +44,7 @@ function GrowthMilestones({ count }: { count: number }) {
                                         : 'border-border-primary bg-bg-card text-text-muted'
                                     }`}
                             >
-                                {reached ? '✓' : m.label}
+                                {reached ? <Check className="w-4 h-4" /> : m.label}
                             </div>
                             <span className={`mt-1.5 text-[10px] font-medium ${reached ? 'text-primary' : 'text-text-muted'}`}>
                                 {m.label}

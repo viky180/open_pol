@@ -285,7 +285,7 @@ export function HeroSection({
                                             .map((sibling) => (
                                                 <Link
                                                     key={sibling.id}
-                                                    href={`/party/${sibling.id}`}
+                                                    href={`/group/${sibling.id}`}
                                                     role="menuitem"
                                                     onClick={() => setShowSiblingMenu(false)}
                                                     className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-secondary"

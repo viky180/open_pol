@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { TrendingUp, TrendingDown, BarChart2, Clock } from 'lucide-react';
 
 type TrendPeriod = '7d' | '30d' | '90d';
 
@@ -108,7 +109,7 @@ export function TrendCard({ item, rank }: { item: TrendItem; rank: number }) {
 
     return (
         <Link
-            href={`/party/${item.party_id}`}
+            href={`/group/${item.party_id}`}
             className="flex items-center gap-4 p-4 rounded-xl border border-border-primary bg-bg-card hover:border-primary/40 hover:shadow-md transition-all duration-200 group"
         >
             {/* Rank */}
@@ -271,7 +272,7 @@ export function TrendsDashboard() {
                         {/* Gainers */}
                         <div>
                             <div className="flex items-center gap-2 mb-4">
-                                <span className="text-lg">📈</span>
+                                <TrendingUp className="w-5 h-5" />
                                 <h2 className="text-lg font-bold text-text-primary">Top Gainers</h2>
                                 <span className="ml-auto badge bg-success/10 text-success border-success/20">
                                     {data.gainers.length}
@@ -285,7 +286,7 @@ export function TrendsDashboard() {
                                 </div>
                             ) : (
                                 <div className="empty-state py-8">
-                                    <div className="empty-state-icon">📊</div>
+                                    <div className="empty-state-icon"><BarChart2 className="w-8 h-8" /></div>
                                     <p className="text-text-muted text-sm">No gainers yet</p>
                                     <p className="text-text-muted text-xs">Data will appear after snapshots are recorded</p>
                                 </div>
@@ -295,7 +296,7 @@ export function TrendsDashboard() {
                         {/* Losers */}
                         <div>
                             <div className="flex items-center gap-2 mb-4">
-                                <span className="text-lg">📉</span>
+                                <TrendingDown className="w-5 h-5" />
                                 <h2 className="text-lg font-bold text-text-primary">Declining</h2>
                                 <span className="ml-auto badge bg-danger/10 text-danger border-danger/20">
                                     {data.losers.length}
@@ -309,7 +310,7 @@ export function TrendsDashboard() {
                                 </div>
                             ) : (
                                 <div className="empty-state py-8">
-                                    <div className="empty-state-icon">📊</div>
+                                    <div className="empty-state-icon"><BarChart2 className="w-8 h-8" /></div>
                                     <p className="text-text-muted text-sm">No declining groups</p>
                                     <p className="text-text-muted text-xs">Groups losing members will appear here</p>
                                 </div>
@@ -320,7 +321,7 @@ export function TrendsDashboard() {
                     {/* No data at all */}
                     {data.gainers.length === 0 && data.losers.length === 0 && (
                         <div className="empty-state py-16">
-                            <div className="empty-state-icon">🕐</div>
+                            <div className="empty-state-icon"><Clock className="w-8 h-8" /></div>
                             <h3 className="text-lg font-semibold text-text-primary">Not enough data yet</h3>
                             <p className="text-text-muted text-sm max-w-md">
                                 Trends will appear once the system has recorded at least 2 daily snapshots.

@@ -173,7 +173,7 @@ export function HomeFeedClient({ representation, feedItems, initialIsAuthenticat
                 title: 'New post in your group',
                 preview: content,
                 timestamp: data?.post?.created_at || new Date().toISOString(),
-                linkUrl: `/party/${representation!.partyId}`,
+                linkUrl: `/group/${representation!.partyId}`,
             };
 
             setPostDraft('');
@@ -261,7 +261,7 @@ export function HomeFeedClient({ representation, feedItems, initialIsAuthenticat
 
                         <div className="mt-5 pt-4 border-t border-border-primary/50 flex items-center justify-between">
                             <p className="text-xs text-text-muted">
-                                Or <Link href="/party/create" className="text-primary font-medium hover:underline">create your own group</Link> to lead a cause
+                                Or <Link href="/group/create" className="text-primary font-medium hover:underline">create your own group</Link> to lead a cause
                             </p>
                         </div>
                     </div>

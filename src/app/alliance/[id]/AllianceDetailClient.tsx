@@ -201,7 +201,7 @@ export function AllianceDetailClient({
             {alliance.members.map((member) => {
               const scopeConfig = getLocationScopeConfig(member.party.location_scope || 'district');
               return (
-                <Link key={member.id} href={`/party/${member.party_id}`} className="card block p-4">
+                <Link key={member.id} href={`/group/${member.party_id}`} className="card block p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-lg text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>

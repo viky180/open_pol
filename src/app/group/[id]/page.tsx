@@ -118,6 +118,17 @@ export default async function PartyPage({ params }: Props) {
             .eq('party_id', id),
     ]);
 
+    // Fetch user's state for chapter highlighting (only for national groups)
+    let userStateName: string | null = null;
+    if (effectiveUserId && party.location_scope === 'national') {
+        const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('state')
+            .eq('id', effectiveUserId)
+            .maybeSingle();
+        userStateName = userProfile?.state ?? null;
+    }
+
     // ============================================
     // PARALLEL QUERY GROUP 2: User-specific queries (only if user is logged in)
     // ============================================
@@ -641,6 +652,7 @@ export default async function PartyPage({ params }: Props) {
             isCurrentUserLeader={groupInternalLeaderId === effectiveUserId}
             issueId={party.issue_id || null}
             issueName={issueResult.data?.issue_text || null}
+            userStateName={userStateName}
         />
     );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Globe, Folder, Users } from 'lucide-react';
 
 type AncestorNode = {
     party_id: string;
@@ -14,10 +15,16 @@ type BreadcrumbsProps = {
     categoryName?: string | null;
 };
 
-const NODE_TYPE_CONFIG = {
-    community: { icon: '🌐', label: 'Community' },
-    sub_community: { icon: '📁', label: 'Sub-community' },
-    group: { icon: '👥', label: 'Group' },
+const NODE_TYPE_ICONS = {
+    community: Globe,
+    sub_community: Folder,
+    group: Users,
+} as const;
+
+const NODE_TYPE_LABELS = {
+    community: 'Community',
+    sub_community: 'Sub-community',
+    group: 'Group',
 } as const;
 
 export function Breadcrumbs({ partyId, categoryName }: BreadcrumbsProps) {
@@ -86,7 +93,9 @@ export function Breadcrumbs({ partyId, categoryName }: BreadcrumbsProps) {
 
             {ancestors.map((ancestor, index) => {
                 const isLast = index === ancestors.length - 1;
-                const config = NODE_TYPE_CONFIG[ancestor.node_type] || NODE_TYPE_CONFIG.group;
+                const nodeType = ancestor.node_type in NODE_TYPE_ICONS ? ancestor.node_type : 'group';
+                const IconComponent = NODE_TYPE_ICONS[nodeType];
+                const label = NODE_TYPE_LABELS[nodeType];
                 const truncatedText = ancestor.issue_text.length > 30
                     ? ancestor.issue_text.slice(0, 30) + '...'
                     : ancestor.issue_text;
@@ -96,15 +105,15 @@ export function Breadcrumbs({ partyId, categoryName }: BreadcrumbsProps) {
                         <span className="text-text-muted/50">›</span>
                         {isLast ? (
                             <span className="flex items-center gap-1 text-text-primary font-medium">
-                                <span title={config.label}>{config.icon}</span>
+                                <IconComponent className="w-3.5 h-3.5" />
                                 <span>{truncatedText}</span>
                             </span>
                         ) : (
                             <Link
-                                href={`/party/${ancestor.party_id}`}
+                                href={`/group/${ancestor.party_id}`}
                                 className="flex items-center gap-1 hover:text-primary transition-colors"
                             >
-                                <span title={config.label}>{config.icon}</span>
+                                <IconComponent className="w-3.5 h-3.5" />
                                 <span>{truncatedText}</span>
                             </Link>
                         )}

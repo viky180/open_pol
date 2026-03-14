@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Check } from 'lucide-react';
 
 type AutoProvisionScope = 'state' | 'district' | 'village';
 
@@ -13,6 +14,10 @@ const SCOPE_LABEL: Record<AutoProvisionScope, string> = {
 interface PostJoinCTABannerProps {
     hasVoted: boolean;
     onCastVote: () => void;
+    onInvite?: () => void;
+    votingLocked?: boolean;
+    votingLockedThreshold?: number;
+    memberCount?: number;
     autoProvisionLinks?: Array<{ scope: AutoProvisionScope; party_id: string }>;
     missingLocationScopes?: AutoProvisionScope[];
     electWizardUrl?: string;
@@ -22,28 +27,31 @@ interface PostJoinCTABannerProps {
 export function PostJoinCTABanner({
     hasVoted,
     onCastVote,
+    onInvite,
+    votingLocked = false,
+    votingLockedThreshold,
+    memberCount,
     autoProvisionLinks = [],
     missingLocationScopes = [],
     electWizardUrl,
     onDismiss,
 }: PostJoinCTABannerProps) {
-    // Steps: 0=Join, 1=Explore, 2=Cast vote, 3=Elect at all levels (if wizard available), 4=Invite
     const hasWizard = !!electWizardUrl;
 
+    // "Explore" (index 0) is auto-complete — user is already on the page.
+    // Index 1 = Cast vote
+    // Index 2 = Elect leaders (if wizard) OR Invite others (if no wizard)
+    // Index 3 = Invite others (only when wizard is present)
+    const inviteStepIndex = hasWizard ? 3 : 2;
     const steps = [
-        { label: 'Join this group' },
         { label: 'Explore members and discussions' },
         { label: 'Cast your trust vote' },
         ...(hasWizard ? [{ label: 'Elect leaders at all levels' }] : []),
         { label: 'Invite others' },
     ];
 
-    // currentStep: which step is currently active
-    // 0=join (never shown since user is already a member)
-    // 1=explore (active right after joining — nudge to look around first)
-    // 2=vote (not voted yet, but explored)
-    // 3=wizard (voted, wizard available)
-    const currentStep = !hasVoted ? 1 : (hasWizard ? 3 : 3);
+    // When voting is locked, skip ahead to invite — that's the real next action.
+    const currentStep = votingLocked ? inviteStepIndex : !hasVoted ? 1 : 2;
 
     return (
         <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-4 text-sm text-text-primary animate-fade-in">
@@ -73,7 +81,7 @@ export function PostJoinCTABanner({
                                     }`}
                                 style={{ fontFamily: 'var(--font-mono)' }}
                             >
-                                {isDone ? '✓' : idx + 1}
+                                {isDone ? <Check className="w-3.5 h-3.5" /> : idx + 1}
                             </div>
                             <span className={`text-sm ${isDone ? 'text-success line-through decoration-success/40' : isActive ? 'text-text-primary font-semibold' : 'text-text-muted'}`}>
                                 {step.label}
@@ -84,8 +92,30 @@ export function PostJoinCTABanner({
             </ol>
 
             {/* CTA for current active step */}
-            {!hasVoted && (
-                <div className="mt-4 flex flex-wrap gap-2">
+            {votingLocked ? (
+                <div className="mt-4 space-y-2">
+                    <p className="text-xs text-text-muted">
+                        Voting unlocks at {votingLockedThreshold} members
+                        {memberCount !== undefined && votingLockedThreshold !== undefined
+                            ? ` — ${votingLockedThreshold - memberCount} more to go`
+                            : ''}. Invite others to help reach the threshold.
+                    </p>
+                    {onInvite && (
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={onInvite}
+                        >
+                            Invite others →
+                        </button>
+                    )}
+                </div>
+            ) : !hasVoted ? (
+                <div className="mt-4 space-y-2">
+                    <p className="text-xs text-text-muted leading-relaxed">
+                        A trust vote picks who leads this group. Choose the member you trust most —
+                        they become leader for as long as they hold the group&apos;s confidence. You can change your vote any time.
+                    </p>
                     <button
                         type="button"
                         className="btn btn-primary btn-sm"
@@ -93,21 +123,26 @@ export function PostJoinCTABanner({
                     >
                         Cast trust vote
                     </button>
-                    <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={onDismiss}
-                    >
-                        Maybe later
-                    </button>
                 </div>
-            )}
+            ) : null}
 
             {hasVoted && hasWizard && (
                 <div className="mt-4">
                     <Link href={electWizardUrl!} className="btn btn-primary btn-sm w-full text-center block">
                         Elect leaders at all levels →
                     </Link>
+                </div>
+            )}
+
+            {hasVoted && !hasWizard && onInvite && (
+                <div className="mt-4">
+                    <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={onInvite}
+                    >
+                        Invite others →
+                    </button>
                 </div>
             )}
 
@@ -118,7 +153,7 @@ export function PostJoinCTABanner({
                         {autoProvisionLinks.map((item) => (
                             <Link
                                 key={`${item.scope}-${item.party_id}`}
-                                href={`/party/${item.party_id}`}
+                                href={`/group/${item.party_id}`}
                                 className="btn btn-secondary btn-sm"
                             >
                                 Open {SCOPE_LABEL[item.scope]} group →
