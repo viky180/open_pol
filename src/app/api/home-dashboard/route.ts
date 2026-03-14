@@ -14,8 +14,8 @@ type DashboardResponse = {
         memberCount: number;
         category: string;
         joinedAt: string;
-        lastActivityAt: string;
         lastActivityPreview: string;
+        locationScope: string | null;
     }>;
     actionItems: Array<{
         id: string;
@@ -62,6 +62,11 @@ type SnapshotRow = {
     supporter_count: number;
     like_count: number;
     recorded_at: string;
+};
+
+type PartyMemberCountRow = {
+    id: string;
+    member_count: number | null;
 };
 
 function deduplicateByParty(rows: SnapshotRow[]): Map<string, SnapshotRow> {
@@ -153,6 +158,7 @@ export async function GET(request?: NextRequest) {
           id,
           issue_text,
           category_id,
+          location_scope,
           state_name,
           district_name,
           categories(name)
@@ -169,6 +175,7 @@ export async function GET(request?: NextRequest) {
                 id: string;
                 issue_text: string;
                 category_id: string | null;
+                location_scope: string | null;
                 state_name: string | null;
                 district_name: string | null;
                 categories: { name: string } | { name: string }[] | null;
@@ -177,6 +184,7 @@ export async function GET(request?: NextRequest) {
                 id: string;
                 issue_text: string;
                 category_id: string | null;
+                location_scope: string | null;
                 state_name: string | null;
                 district_name: string | null;
                 categories: { name: string } | { name: string }[] | null;
@@ -264,7 +272,8 @@ export async function GET(request?: NextRequest) {
                         category: category?.name || 'General',
                         joinedAt: membership.joined_at,
                         lastActivityAt: activity?.at || membership.joined_at,
-                        lastActivityPreview: activity?.preview || 'You joined this group',
+                        lastActivityPreview: activity?.preview || '',
+                        locationScope: party?.location_scope ?? null,
                     };
                 })
                 .sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime());
@@ -361,33 +370,44 @@ export async function GET(request?: NextRequest) {
 
     const now = new Date();
     const cutoff7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const cutoff7Plus3Days = new Date(cutoff7.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-    const [latestSnapshotsRes, baselineSnapshotsRes] = await Promise.all([
+    const [currentCountsRes, baselineSnapshotsRes] = await Promise.all([
         scopedPartyIds
             ? supabase
-                .from('party_snapshots')
-                .select('party_id, member_count, supporter_count, like_count, recorded_at')
-                .in('party_id', scopedPartyIds.length > 0 ? scopedPartyIds : ['00000000-0000-0000-0000-000000000000'])
-                .order('recorded_at', { ascending: false })
+                .from('parties_with_member_counts')
+                .select('id, member_count')
+                .in('id', scopedPartyIds.length > 0 ? scopedPartyIds : ['00000000-0000-0000-0000-000000000000'])
             : supabase
-                .from('party_snapshots')
-                .select('party_id, member_count, supporter_count, like_count, recorded_at')
-                .order('recorded_at', { ascending: false }),
+                .from('parties_with_member_counts')
+                .select('id, member_count'),
         scopedPartyIds
             ? supabase
                 .from('party_snapshots')
                 .select('party_id, member_count, supporter_count, like_count, recorded_at')
                 .in('party_id', scopedPartyIds.length > 0 ? scopedPartyIds : ['00000000-0000-0000-0000-000000000000'])
                 .gte('recorded_at', cutoff7.toISOString())
+                .lte('recorded_at', cutoff7Plus3Days.toISOString())
                 .order('recorded_at', { ascending: true })
             : supabase
                 .from('party_snapshots')
                 .select('party_id, member_count, supporter_count, like_count, recorded_at')
                 .gte('recorded_at', cutoff7.toISOString())
+                .lte('recorded_at', cutoff7Plus3Days.toISOString())
                 .order('recorded_at', { ascending: true }),
     ]);
 
-    const latestByParty = deduplicateByParty((latestSnapshotsRes.data || []) as SnapshotRow[]);
+    const latestByParty = new Map<string, SnapshotRow>();
+    ((currentCountsRes.data || []) as PartyMemberCountRow[]).forEach((row) => {
+        latestByParty.set(row.id, {
+            party_id: row.id,
+            member_count: row.member_count || 0,
+            supporter_count: 0,
+            like_count: 0,
+            recorded_at: now.toISOString()
+        });
+    });
+
     const baselineByParty = deduplicateByParty((baselineSnapshotsRes.data || []) as SnapshotRow[]);
 
     const trendRows: Array<{
@@ -469,7 +489,6 @@ export async function GET(request?: NextRequest) {
             currentMembers: item.currentMembers,
         }));
     }
-
     const [recentPostsRes, recentQuestionsRes] = await Promise.all([
         scopedPartyIds
             ? supabase
@@ -477,24 +496,24 @@ export async function GET(request?: NextRequest) {
                 .select('party_id, created_at')
                 .in('party_id', scopedPartyIds.length > 0 ? scopedPartyIds : ['00000000-0000-0000-0000-000000000000'])
                 .gte('created_at', cutoff7.toISOString())
-                .limit(5000)
+                .limit(1000)
             : supabase
                 .from('party_posts')
                 .select('party_id, created_at')
                 .gte('created_at', cutoff7.toISOString())
-                .limit(5000),
+                .limit(1000),
         scopedPartyIds
             ? supabase
                 .from('questions')
                 .select('party_id, created_at')
                 .in('party_id', scopedPartyIds.length > 0 ? scopedPartyIds : ['00000000-0000-0000-0000-000000000000'])
                 .gte('created_at', cutoff7.toISOString())
-                .limit(5000)
+                .limit(1000)
             : supabase
                 .from('questions')
                 .select('party_id, created_at')
                 .gte('created_at', cutoff7.toISOString())
-                .limit(5000),
+                .limit(1000),
     ]);
 
     const discussionCounts = new Map<string, number>();
