@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 type LocationBody = {
     display_name?: string;
+    bio?: string;
     pincode?: string;
     country?: string;
     state?: string;
@@ -43,6 +44,18 @@ export async function PATCH(request: Request) {
             return NextResponse.json({ error: 'Display name is too long' }, { status: 400 });
         }
         updates.display_name = trimmed;
+    }
+
+    if (body.bio !== undefined) {
+        if (body.bio === null || body.bio === '') {
+            updates.bio = null;
+        } else if (typeof body.bio === 'string') {
+            const trimmed = body.bio.trim();
+            if (trimmed.length > 300) {
+                return NextResponse.json({ error: 'Bio is too long (max 300 characters)' }, { status: 400 });
+            }
+            updates.bio = trimmed;
+        }
     }
 
     if (typeof body.pincode === 'string') {
@@ -99,12 +112,13 @@ export async function GET() {
 
     const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name, pincode, country, state, area_type, city, corporation, ward, locality, district, block, panchayat, village, lat, lng, gps_label')
+        .select('display_name, bio, pincode, country, state, area_type, city, corporation, ward, locality, district, block, panchayat, village, lat, lng, gps_label')
         .eq('id', user.id)
         .maybeSingle();
 
     return NextResponse.json({
         display_name: profile?.display_name || user.user_metadata?.full_name || '',
+        bio: profile?.bio || '',
         pincode: profile?.pincode || '',
         country: profile?.country || 'India',
         state: profile?.state || null,

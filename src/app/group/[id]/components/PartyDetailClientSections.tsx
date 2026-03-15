@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { Party } from '@/types/database';
+import { MyBackLinkCard } from '@/components/MyBackLinkCard';
 
 export type PartyDetailTabId = 'about' | 'activity' | 'people' | 'petitions' | 'alliances';
 
@@ -182,6 +183,11 @@ interface PeopleTabPanelProps {
     showPeopleNames: boolean;
     onToggleShowPeopleNames: (show: boolean) => void;
     peopleRows: PeopleRow[];
+    partyId: string;
+    partyName: string;
+    currentUserId: string | null;
+    currentUserName: string | null;
+    isMember: boolean;
 }
 
 export function PeopleTabPanel({
@@ -189,6 +195,11 @@ export function PeopleTabPanel({
     showPeopleNames,
     onToggleShowPeopleNames,
     peopleRows,
+    partyId,
+    partyName,
+    currentUserId,
+    currentUserName,
+    isMember,
 }: PeopleTabPanelProps) {
     return (
         <section
@@ -211,6 +222,17 @@ export function PeopleTabPanel({
                     </label>
                 }
             />
+
+            {isMember && currentUserId && (
+                <div className="mb-4">
+                    <MyBackLinkCard
+                        groupId={partyId}
+                        groupName={partyName}
+                        currentUserId={currentUserId}
+                        currentUserName={currentUserName}
+                    />
+                </div>
+            )}
 
             <div className="space-y-3">
                 {peopleRows.map((person, index) => (

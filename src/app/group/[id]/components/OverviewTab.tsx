@@ -8,9 +8,10 @@ interface OverviewTabProps {
     optimisticIsMember: boolean;
     trustedMember: MemberWithVotes | null;
     votedFor: string | null;
-    voteExpiresInDays: number | null;
+    voteExpiresAt: string | null;
     showVoteOptions: boolean;
     onToggleVoteOptions: () => void;
+    onCastVote: () => void;
     candidateMembers: MemberWithVotes[];
     voteLoadingFor: string | null;
     onVoteChange: (toUserId: string) => void;
@@ -21,13 +22,23 @@ interface OverviewTabProps {
     onRefresh: () => void;
 }
 
+function formatExpiryDate(isoDate: string | null): string {
+    if (!isoDate) return 'Not set';
+    return new Date(isoDate).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    });
+}
+
 export function OverviewTab({
     optimisticIsMember,
     trustedMember,
     votedFor,
-    voteExpiresInDays,
+    voteExpiresAt,
     showVoteOptions,
     onToggleVoteOptions,
+    onCastVote,
     candidateMembers,
     voteLoadingFor,
     onVoteChange,
@@ -61,19 +72,36 @@ export function OverviewTab({
                     </div>
                 ) : (
                     <div className="mt-4">
-                        <p className="text-sm text-text-secondary">
-                            You trust: <strong>{trustedMember?.display_name || 'No one yet'}</strong>
-                        </p>
-                        <p className="mt-1 text-sm text-text-secondary">
-                            Expires in: {voteExpiresInDays === null ? 'Not set' : `${voteExpiresInDays} day${voteExpiresInDays === 1 ? '' : 's'}`}
-                        </p>
-                        <button
-                            type="button"
-                            onClick={onToggleVoteOptions}
-                            className="btn btn-secondary mt-5"
-                        >
-                            {showVoteOptions ? 'Hide options' : 'Change vote'}
-                        </button>
+                        {trustedMember ? (
+                            <>
+                                <p className="text-sm text-text-secondary">
+                                    You trust: <strong>{trustedMember.display_name || 'Anonymous'}</strong>
+                                </p>
+                                <p className="mt-1 text-sm text-text-secondary">
+                                    Expires: {formatExpiryDate(voteExpiresAt)}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={onToggleVoteOptions}
+                                    className="btn btn-secondary mt-5"
+                                >
+                                    {showVoteOptions ? 'Hide options' : 'Change vote'}
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-sm text-text-secondary">
+                                    You haven&apos;t backed anyone yet. Pick a member to speak for you.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={onCastVote}
+                                    className="btn btn-primary mt-5"
+                                >
+                                    Choose your voice
+                                </button>
+                            </>
+                        )}
 
                         {showVoteOptions && (
                             <ul className="mt-4 space-y-2">

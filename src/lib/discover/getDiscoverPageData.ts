@@ -81,10 +81,6 @@ function toExploreScope(value?: string): ExploreScope {
     return 'india';
 }
 
-function buildTrendPercent(seed: number): number {
-    return 12 + (Math.abs(seed) % 44);
-}
-
 async function getDiscoverAllianceItems(
     supabase: SupabaseClient<Database>,
     options: {
@@ -177,7 +173,6 @@ async function getDiscoverAllianceItems(
             combinedMemberCount,
             groupCount: normalizedMembers.length,
             scopes,
-            trendPercent: buildTrendPercent(combinedMemberCount + normalizedMembers.length),
         };
     });
 
@@ -458,7 +453,16 @@ export async function getDiscoverPageData(
         )
     );
 
-    const [directChildrenResult, parentNamesResult] = await Promise.all([
+    // Collect unique creator IDs for profile lookup
+    const creatorIds = Array.from(
+        new Set(
+            parties
+                .map((p) => p.created_by)
+                .filter((value): value is string => Boolean(value))
+        )
+    );
+
+    const [directChildrenResult, parentNamesResult, creatorProfilesResult, leaderVotesResult] = await Promise.all([
         visiblePartyIds.length > 0
             ? supabase
                 .from('parties')
@@ -471,6 +475,20 @@ export async function getDiscoverPageData(
                 .select('id, issue_text, is_founding_group, location_scope, location_label, state_name, district_name, block_name, panchayat_name, village_name')
                 .in('id', parentIds)
             : Promise.resolve({ data: [] as { id: string; issue_text: string; is_founding_group: boolean | null; location_scope: string | null; location_label: string | null; state_name: string | null; district_name: string | null; block_name: string | null; panchayat_name: string | null; village_name: string | null }[] }),
+        creatorIds.length > 0
+            ? supabase
+                .from('profiles')
+                .select('id, display_name')
+                .in('id', creatorIds) as unknown as Promise<{ data: { id: string; display_name: string | null }[] | null }>
+            : Promise.resolve({ data: [] as { id: string; display_name: string | null }[] }),
+        // Fetch top trust-vote recipient per party to identify elected leaders
+        visiblePartyIds.length > 0
+            ? supabase
+                .from('trust_votes')
+                .select('party_id, to_user_id')
+                .in('party_id', visiblePartyIds)
+                .gt('expires_at', new Date().toISOString()) as unknown as Promise<{ data: { party_id: string; to_user_id: string }[] | null }>
+            : Promise.resolve({ data: [] as { party_id: string; to_user_id: string }[] }),
     ]);
 
     const childrenCountByParentId = new Map<string, number>();
@@ -495,8 +513,60 @@ export async function getDiscoverPageData(
         }));
     });
 
+    // Build creator name lookup
+    const creatorNameById = new Map<string, string>();
+    (creatorProfilesResult.data || []).forEach((row) => {
+        if (row.display_name) {
+            creatorNameById.set(row.id, row.display_name);
+        }
+    });
+
+    // Build leader lookup: find top trust-vote recipient per party
+    const voteCountsByParty = new Map<string, Map<string, number>>();
+    (leaderVotesResult.data || []).forEach((row) => {
+        let partyVotes = voteCountsByParty.get(row.party_id);
+        if (!partyVotes) {
+            partyVotes = new Map();
+            voteCountsByParty.set(row.party_id, partyVotes);
+        }
+        partyVotes.set(row.to_user_id, (partyVotes.get(row.to_user_id) || 0) + 1);
+    });
+
+    const leaderIdByPartyId = new Map<string, string>();
+    voteCountsByParty.forEach((votes, partyId) => {
+        let topUserId = '';
+        let topCount = 0;
+        votes.forEach((count, userId) => {
+            if (count > topCount) {
+                topCount = count;
+                topUserId = userId;
+            }
+        });
+        if (topUserId) leaderIdByPartyId.set(partyId, topUserId);
+    });
+
+    // Fetch leader profile names (may overlap with creators, but keep it simple)
+    const leaderUserIds = Array.from(new Set(Array.from(leaderIdByPartyId.values())));
+    const uniqueLeaderIds = leaderUserIds.filter((id) => !creatorNameById.has(id));
+    const leaderNameById = new Map<string, string>(creatorNameById);
+    if (uniqueLeaderIds.length > 0) {
+        const { data: leaderProfiles } = await supabase
+            .from('profiles')
+            .select('id, display_name')
+            .in('id', uniqueLeaderIds) as unknown as { data: { id: string; display_name: string | null }[] | null };
+        (leaderProfiles || []).forEach((row) => {
+            if (row.display_name) leaderNameById.set(row.id, row.display_name);
+        });
+    }
 
     let groupItems: DiscoverGroupItem[];
+
+    const resolveNames = (p: PartyWithMemberCountRow) => {
+        const leaderId = leaderIdByPartyId.get(p.id);
+        const leaderName = leaderId ? (leaderNameById.get(leaderId) || null) : null;
+        const creatorName = p.created_by ? (creatorNameById.get(p.created_by) || null) : null;
+        return { leaderName, creatorName };
+    };
 
     if (isSearching) {
         groupItems = parties.map((p) => ({
@@ -505,11 +575,11 @@ export async function getDiscoverPageData(
             likeCount: likesByPartyId.get(p.id) || 0,
             likedByMe: likedByMeSet.has(p.id),
             joinedByMe: activeMembershipPartyId === p.id,
-            trendPercent: buildTrendPercent((p.member_count || 0) + (likesByPartyId.get(p.id) || 0)),
-            lastActiveAt: p.created_at,
+            lastActiveAt: p.updated_at || p.created_at,
             type: 'standalone' as GroupType,
             hasChildren: childrenCountByParentId.has(p.id),
             parentName: p.parent_party_id ? parentNameById.get(p.parent_party_id) : undefined,
+            ...resolveNames(p),
         }));
     } else {
         groupItems = parties.map((party) => {
@@ -522,11 +592,11 @@ export async function getDiscoverPageData(
                 likeCount: likesByPartyId.get(party.id) || 0,
                 likedByMe: likedByMeSet.has(party.id),
                 joinedByMe: activeMembershipPartyId === party.id,
-                trendPercent: buildTrendPercent((party.member_count || 0) + (likesByPartyId.get(party.id) || 0)),
-                lastActiveAt: party.created_at,
+                lastActiveAt: party.updated_at || party.created_at,
                 type,
                 hasChildren,
                 parentName: party.parent_party_id ? parentNameById.get(party.parent_party_id) : undefined,
+                ...resolveNames(party),
             };
         });
 

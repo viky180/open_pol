@@ -3,6 +3,9 @@
 import { useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { MemberWithVotes } from '@/types/database';
+import { useToast } from '@/components/ToastContext';
+
+const TRUST_VOTE_EXPIRES_DAYS = 180;
 
 interface TrustVoteButtonProps {
     partyId: string;
@@ -24,7 +27,9 @@ export function TrustVoteButton({
     onVoteChange
 }: TrustVoteButtonProps) {
     const [loading, setLoading] = useState(false);
+    const [confirmingRemove, setConfirmingRemove] = useState(false);
     const supabase = createClient();
+    const { showToast } = useToast();
 
     const isVotedForThis = votedFor === memberId;
     const canVote = currentUserId && currentUserId !== memberId;
@@ -32,38 +37,45 @@ export function TrustVoteButton({
     const handleVote = async () => {
         if (!currentUserId || loading) return;
         setLoading(true);
+        setConfirmingRemove(false);
 
         try {
             if (isVotedForThis) {
-                // Withdraw vote
-                await supabase
+                const { error } = await supabase
                     .from('trust_votes')
                     .delete()
                     .eq('party_id', partyId)
                     .eq('from_user_id', currentUserId);
+                if (error) throw error;
             } else {
-                // If already voted for someone else, first remove that vote
                 if (hasVoted) {
-                    await supabase
+                    const { error } = await supabase
                         .from('trust_votes')
                         .delete()
                         .eq('party_id', partyId)
                         .eq('from_user_id', currentUserId);
+                    if (error) throw error;
                 }
 
-                // Give new vote
-                await supabase
+                const expiresAt = new Date();
+                expiresAt.setDate(expiresAt.getDate() + TRUST_VOTE_EXPIRES_DAYS);
+
+                const { error } = await supabase
                     .from('trust_votes')
                     .insert({
                         party_id: partyId,
                         from_user_id: currentUserId,
-                        to_user_id: memberId
+                        to_user_id: memberId,
+                        expires_at: expiresAt.toISOString(),
                     });
+                if (error) throw error;
+                showToast('success', `You are now backing ${memberName}.`);
             }
 
             onVoteChange();
         } catch (err) {
             console.error('Vote error:', err);
+            showToast('error', 'Could not save your vote. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -71,14 +83,47 @@ export function TrustVoteButton({
 
     if (!canVote) return null;
 
+    if (isVotedForThis) {
+        if (confirmingRemove) {
+            return (
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={handleVote}
+                        disabled={loading}
+                        className="btn btn-sm btn-danger min-w-[80px]"
+                    >
+                        {loading ? '...' : 'Confirm'}
+                    </button>
+                    <button
+                        onClick={() => setConfirmingRemove(false)}
+                        disabled={loading}
+                        className="btn btn-sm btn-secondary"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            );
+        }
+        return (
+            <button
+                onClick={() => setConfirmingRemove(true)}
+                disabled={loading}
+                className="btn btn-sm btn-secondary min-w-[100px]"
+                title="Remove your backing"
+            >
+                Remove backing
+            </button>
+        );
+    }
+
     return (
         <button
             onClick={handleVote}
             disabled={loading}
-            className={`btn btn-sm ${isVotedForThis ? 'btn-danger' : 'btn-success'} min-w-[100px]`}
-            title={isVotedForThis ? 'Remove your backing' : `Back ${memberName} as your voice`}
+            className="btn btn-sm btn-success min-w-[100px]"
+            title={`Back ${memberName} as your voice`}
         >
-            {loading ? '...' : isVotedForThis ? 'Remove backing' : '👍 Back'}
+            {loading ? '...' : 'Back'}
         </button>
     );
 }
@@ -120,7 +165,7 @@ export function MemberList({
 
     return (
         <div className="flex flex-col gap-3">
-            {members.length > 15 && (
+            {members.length > 5 && (
                 <div className="rounded-xl border border-border-primary bg-bg-tertiary p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="text-xs sm:text-sm text-text-muted">

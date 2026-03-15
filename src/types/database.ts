@@ -5,6 +5,7 @@ export type Profile = {
   id: string;
   created_at: string;
   display_name: string | null;
+  bio?: string | null;
   pincode: string | null;
   updated_at: string | null;
 };
@@ -103,6 +104,7 @@ export type Party = {
   block_name?: string | null;
   panchayat_name?: string | null;
   village_name?: string | null;
+  description?: string | null;
   created_by: string | null;
   updated_at: string | null;
 };
@@ -136,9 +138,11 @@ export type Membership = {
 export type MemberWithVotes = {
   user_id: string;
   display_name: string | null;
+  bio?: string | null;
   joined_at: string;
   trust_votes: number;
   is_leader: boolean;
+  is_candidate?: boolean;
 };
 
 export type TrustVote = {
@@ -366,16 +370,6 @@ export type PartyPost = {
 };
 
 // Party snapshots — periodic metric recordings for trend analysis
-// Leader nomination — sub-group leaders must self-nominate for parent leadership
-export type LeaderNomination = {
-  id: string;
-  user_id: string;
-  from_party_id: string;
-  to_party_id: string;
-  created_at: string;
-  withdrawn_at: string | null;
-};
-
 export type PartySnapshot = {
   id: string;
   party_id: string;
@@ -571,10 +565,10 @@ export type Database = {
         Insert: Omit<FundingDonation, 'id' | 'created_at' | 'verified_at' | 'verified_by' | 'is_verified'>;
         Update: Partial<Pick<FundingDonation, 'is_verified' | 'verified_at' | 'verified_by'>>;
       };
-      leader_nominations: {
-        Row: LeaderNomination;
-        Insert: Omit<LeaderNomination, 'id' | 'created_at' | 'withdrawn_at'>;
-        Update: Partial<Pick<LeaderNomination, 'withdrawn_at'>>;
+      candidacies: {
+        Row: { id: string; user_id: string; party_id: string; declared_at: string; withdrawn_at: string | null };
+        Insert: { user_id: string; party_id: string };
+        Update: Partial<{ withdrawn_at: string | null }>;
       };
       party_snapshots: {
         Row: PartySnapshot;

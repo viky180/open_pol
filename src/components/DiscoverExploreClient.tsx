@@ -101,14 +101,6 @@ function matchesIssue(item: DiscoverGroupItem, issue: string, selectedCategoryId
     return issueText.includes(issue.toLowerCase()) || parent.includes(issue.toLowerCase());
 }
 
-function getCardMomentumText(item: DiscoverGroupItem): string {
-    if (typeof item.trendPercent === 'number' && item.trendPercent > 0) {
-        return `+${item.trendPercent}% support this week`;
-    }
-
-    return 'New or steady support';
-}
-
 function getCardContext(item: DiscoverGroupItem): string {
     if (item.parentName) return `Part of ${item.parentName}`;
     if (item.type === 'parent') return 'Independent group with local chapters';
@@ -629,8 +621,16 @@ export function DiscoverExploreClient({
 
                                         <h2 className="mt-3 text-xl text-text-primary" style={{ fontFamily: 'var(--font-display)' }}>{item.party.issue_text}</h2>
                                         <p className="mt-1 text-sm text-text-muted">{getCardContext(item)}</p>
+                                        {item.party.description && (
+                                            <p className="mt-2 text-sm leading-snug text-text-secondary line-clamp-2">{item.party.description}</p>
+                                        )}
+                                        {(item.leaderName || item.creatorName) && (
+                                            <p className="mt-1.5 text-xs font-medium text-text-muted">
+                                                {item.leaderName ? `Led by ${item.leaderName}` : `Started by ${item.creatorName}`}
+                                            </p>
+                                        )}
 
-                                        <div className="mt-4 grid grid-cols-3 gap-3">
+                                        <div className="mt-4 grid grid-cols-2 gap-3">
                                             <div className="editorial-subcard py-3">
                                                 <div className="text-lg text-primary" style={{ fontFamily: 'var(--font-display)' }}>{item.memberCount.toLocaleString('en-IN')}</div>
                                                 <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted" style={{ fontFamily: 'var(--font-mono)' }}>Members</div>
@@ -638,10 +638,6 @@ export function DiscoverExploreClient({
                                             <div className="editorial-subcard py-3">
                                                 <div className="text-lg text-primary" style={{ fontFamily: 'var(--font-display)' }}>{item.likeCount.toLocaleString('en-IN')}</div>
                                                 <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted" style={{ fontFamily: 'var(--font-mono)' }}>Saved</div>
-                                            </div>
-                                            <div className="editorial-subcard py-3">
-                                                <div className="text-sm font-semibold text-accent">{getCardMomentumText(item)}</div>
-                                                <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-text-muted" style={{ fontFamily: 'var(--font-mono)' }}>Momentum</div>
                                             </div>
                                         </div>
 

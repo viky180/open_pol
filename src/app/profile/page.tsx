@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { MeActionsCard } from '@/components/MeActionsCard';
 import { UpdateLocationButton } from '@/components/UpdateLocationButton';
+import { EditBioModal } from '@/components/EditBioModal';
 
 type Party = {
   id: string;
@@ -78,7 +79,10 @@ export default async function ProfilePage() {
     <div className="editorial-page editorial-page--narrow py-6 sm:py-8">
       <section className="editorial-hero">
         <p className="editorial-hero__eyebrow">Profile</p>
-        <h1 className="editorial-hero__title text-3xl sm:text-5xl">{displayName}</h1>
+        <h1 className="editorial-hero__title text-3xl sm:text-5xl flex items-center gap-2">
+            {displayName}
+            <EditBioModal />
+        </h1>
         <p className="editorial-hero__body">{user.email}</p>
       </section>
 

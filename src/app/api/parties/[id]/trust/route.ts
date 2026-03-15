@@ -6,6 +6,8 @@ interface Props {
     params: Promise<{ id: string }>;
 }
 
+const TRUST_VOTE_EXPIRES_DAYS = 180;
+
 // POST /api/parties/[id]/trust - Give trust vote
 export async function POST(request: NextRequest, { params }: Props) {
     const { id } = await params;
@@ -103,13 +105,17 @@ export async function POST(request: NextRequest, { params }: Props) {
         .eq('party_id', id)
         .eq('from_user_id', effectiveUserId);
 
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + TRUST_VOTE_EXPIRES_DAYS);
+
     // Give new vote
     const { data, error } = await supabase
         .from('trust_votes')
         .insert({
             party_id: id,
             from_user_id: effectiveUserId,
-            to_user_id
+            to_user_id,
+            expires_at: expiresAt.toISOString(),
         })
         .select()
         .single();

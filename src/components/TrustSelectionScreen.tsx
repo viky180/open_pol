@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 import type { MemberWithVotes } from '@/types/database';
 import { useToast } from '@/components/ToastContext';
 
@@ -16,8 +15,6 @@ interface TrustSelectionScreenProps {
     onClose?: () => void;
 }
 
-const RECONFIRMATION_DAYS = 180;
-
 export function TrustSelectionScreen({
     partyId,
     partyName,
@@ -29,7 +26,6 @@ export function TrustSelectionScreen({
 }: TrustSelectionScreenProps) {
     const [selectedMember, setSelectedMember] = useState<string | null>(votedFor);
     const [loading, setLoading] = useState(false);
-    const supabase = createClient();
     const { showToast } = useToast();
 
     const sortedMembers = [...members]
@@ -41,34 +37,22 @@ export function TrustSelectionScreen({
         setLoading(true);
 
         try {
-            if (votedFor) {
-                const { error: deleteError } = await supabase
-                    .from('trust_votes')
-                    .delete()
-                    .eq('party_id', partyId)
-                    .eq('from_user_id', currentUserId);
-                if (deleteError) throw deleteError;
+            const response = await fetch(`/api/parties/${partyId}/trust`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to_user_id: selectedMember }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload?.error || 'Could not save your trust vote');
             }
-
-            const expiresAt = new Date();
-            expiresAt.setDate(expiresAt.getDate() + RECONFIRMATION_DAYS);
-
-            const { error: insertError } = await supabase
-                .from('trust_votes')
-                .insert({
-                    party_id: partyId,
-                    from_user_id: currentUserId,
-                    to_user_id: selectedMember,
-                    expires_at: expiresAt.toISOString(),
-                });
-            if (insertError) throw insertError;
 
             showToast('success', 'Trust vote saved.');
             onVoteChange();
             onClose?.();
         } catch (err) {
             console.error('Backing error:', err);
-            showToast('error', 'Could not save your trust vote. Please try again.');
+            showToast('error', err instanceof Error ? err.message : 'Could not save your trust vote. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -154,15 +138,28 @@ export function TrustSelectionScreen({
                                             <span className="font-medium text-text-primary truncate">
                                                 {member.display_name || 'Anonymous'}
                                             </span>
+                                            <span className="text-[10px] text-text-muted mt-0.5 whitespace-nowrap">
+                                                Joined {new Date(member.joined_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                                            </span>
                                             {member.is_leader && (
                                                 <span className="text-[10px] uppercase tracking-wide text-primary">
                                                     Current leader
                                                 </span>
                                             )}
+                                            {member.is_candidate && !member.is_leader && (
+                                                <span className="text-[10px] uppercase tracking-wide text-accent">
+                                                    Candidate
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="text-xs text-text-muted">
+                                        <div className="text-xs text-text-muted mt-0.5">
                                             {member.trust_votes} trust vote{member.trust_votes !== 1 ? 's' : ''}
                                         </div>
+                                        {member.bio && (
+                                            <div className="mt-2 text-sm text-text-secondary italic pl-3 border-l-2 border-primary/30">
+                                                "{member.bio}"
+                                            </div>
+                                        )}
                                     </div>
 
                                     <Link

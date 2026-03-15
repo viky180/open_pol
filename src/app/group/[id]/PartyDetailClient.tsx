@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef, type ReactNode } from 'react';
+import { useMemo, useState, useEffect, useRef, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -111,6 +111,7 @@ interface PartyDetailClientProps {
         signatures: number;
     }>;
     isCurrentUserLeader: boolean;
+    isCurrentUserCandidate: boolean;
     issueId?: string | null;
     issueName?: string | null;
     userStateName?: string | null;
@@ -254,6 +255,7 @@ function PartyDetailClientInner({
     members,
     currentUserId,
     isMember,
+    isEligibleVoter,
     sameScopeConflictPartyId,
     sameScopeConflictIssueText,
     memberSince,
@@ -274,6 +276,7 @@ function PartyDetailClientInner({
     petitionCampaigns,
     childGroups,
     isCurrentUserLeader,
+    isCurrentUserCandidate,
     issueId,
     issueName,
     userStateName,
@@ -283,6 +286,8 @@ function PartyDetailClientInner({
     const [autoProvisionNotice, setAutoProvisionNotice] = useState<AutoProvisionNotice | null>(null);
     const [showPostJoinBanner, setShowPostJoinBanner] = useState(false);
     const [showTrustModal, setShowTrustModal] = useState(false);
+    const [candidacyOptimistic, setCandidacyOptimistic] = useState(isCurrentUserCandidate);
+    const [candidacyLoading, setCandidacyLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<PartyDetailTabId>('about');
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const [showPeopleNames, setShowPeopleNames] = useState(false);
@@ -292,6 +297,7 @@ function PartyDetailClientInner({
     const [likeCountLive, setLikeCountLive] = useState(initialLikeCount);
     const [likedByMe, setLikedByMe] = useState(initialLikedByMe);
     const [likeLoading, setLikeLoading] = useState(false);
+    const [, startVoteRefreshTransition] = useTransition();
     const moreMenuRef = useRef<HTMLDivElement | null>(null);
     const router = useRouter();
 
@@ -360,6 +366,7 @@ function PartyDetailClientInner({
             setShowPostJoinBanner(true);
         },
     });
+    const canCastTrustVote = optimisticIsMember || isEligibleVoter;
 
     const {
         partyIconSvg,
@@ -532,11 +539,11 @@ function PartyDetailClientInner({
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const params = new URLSearchParams(window.location.search);
-        if (params.get('action') === 'vote' && optimisticIsMember) {
+        if (params.get('action') === 'vote' && canCastTrustVote) {
             setShowTrustModal(true);
             window.history.replaceState({}, '', window.location.pathname);
         }
-    }, [optimisticIsMember]);
+    }, [canCastTrustVote]);
 
     useEffect(() => {
         if (!showMoreMenu) return;
@@ -636,6 +643,27 @@ function PartyDetailClientInner({
     const handleReport = () => {
         showStatusMessage('info', 'Thanks. Our moderation team will review this group.');
         setShowMoreMenu(false);
+    };
+
+    const handleToggleCandidacy = async () => {
+        if (!currentUserId) { setShowAuthModal(true); return; }
+        if (!optimisticIsMember) { showStatusMessage('info', 'Join this group to declare candidacy.'); return; }
+        setCandidacyLoading(true);
+        const method = candidacyOptimistic ? 'DELETE' : 'POST';
+        try {
+            const res = await fetch(`/api/parties/${party.id}/candidacy`, { method });
+            if (!res.ok) {
+                const payload = await res.json().catch(() => ({}));
+                throw new Error(payload?.error || 'Failed to update candidacy');
+            }
+            setCandidacyOptimistic(!candidacyOptimistic);
+            showStatusMessage('success', candidacyOptimistic ? 'Candidacy withdrawn.' : 'You have declared your candidacy.');
+        } catch (err) {
+            showStatusMessage('error', err instanceof Error ? err.message : 'Could not update candidacy.');
+        } finally {
+            setCandidacyLoading(false);
+            setShowMoreMenu(false);
+        }
     };
 
     const handleStartNewPetition = () => {
@@ -780,7 +808,7 @@ function PartyDetailClientInner({
                                 </button>
                                 {showMoreMenu && (
                                     <div className="absolute right-0 top-12 z-20 w-48 overflow-hidden rounded-2xl border border-border-primary bg-bg-primary text-text-primary shadow-xl">
-                                        {optimisticIsMember && (
+                                        {canCastTrustVote && (
                                             <>
                                                 <button
                                                     type="button"
@@ -789,13 +817,25 @@ function PartyDetailClientInner({
                                                 >
                                                     Cast trust vote
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setShowMoreMenu(false); setShowLeaveModal(true); }}
-                                                    className={`w-full text-left text-red-400 ${MENU_ITEM_CLS}`}
-                                                >
-                                                    Leave group
-                                                </button>
+                                                {optimisticIsMember && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleToggleCandidacy}
+                                                        disabled={candidacyLoading}
+                                                        className={`w-full text-left ${MENU_ITEM_CLS}`}
+                                                    >
+                                                        {candidacyLoading ? 'Updating...' : candidacyOptimistic ? 'Withdraw candidacy' : 'Run for leadership'}
+                                                    </button>
+                                                )}
+                                                {optimisticIsMember && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setShowMoreMenu(false); setShowLeaveModal(true); }}
+                                                        className={`w-full text-left text-red-400 ${MENU_ITEM_CLS}`}
+                                                    >
+                                                        Leave group
+                                                    </button>
+                                                )}
                                                 <div className="border-t border-border-primary/60" />
                                             </>
                                         )}
@@ -1088,6 +1128,34 @@ function PartyDetailClientInner({
                                     No representative yet. The group with the most members here will send one.
                                 </NoLeaderCard>
                             )}
+
+                            {/* Declare candidacy CTA for members */}
+                            {optimisticIsMember && (
+                                <div className="mt-4 border-t border-border-primary/60 pt-4">
+                                    {candidacyOptimistic ? (
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-xs text-success font-medium">You are running for leadership</span>
+                                            <button
+                                                type="button"
+                                                onClick={handleToggleCandidacy}
+                                                disabled={candidacyLoading}
+                                                className="btn btn-secondary btn-sm shrink-0"
+                                            >
+                                                {candidacyLoading ? 'Updating...' : 'Withdraw'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleCandidacy}
+                                            disabled={candidacyLoading}
+                                            className="btn btn-secondary btn-sm w-full"
+                                        >
+                                            {candidacyLoading ? 'Updating...' : 'Declare candidacy'}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </section>
 
                         <section className="issue-card">
@@ -1130,6 +1198,11 @@ function PartyDetailClientInner({
                     showPeopleNames={showPeopleNames}
                     onToggleShowPeopleNames={setShowPeopleNames}
                     peopleRows={peopleRows}
+                    partyId={party.id}
+                    partyName={party.issue_text}
+                    currentUserId={currentUserId}
+                    currentUserName={members.find(m => m.user_id === currentUserId)?.display_name ?? null}
+                    isMember={optimisticIsMember}
                 />
             )}
 
@@ -1148,7 +1221,7 @@ function PartyDetailClientInner({
             {/* Modals */}
             {showAuthModal && <AuthModal partyId={party.id} onCancel={() => setShowAuthModal(false)} />}
 
-            {showTrustModal && optimisticIsMember && (
+            {showTrustModal && canCastTrustVote && (
                 <TrustSelectionModal
                     partyId={party.id}
                     partyName={party.issue_text}
@@ -1158,7 +1231,9 @@ function PartyDetailClientInner({
                     onVoteChange={() => {
                         setShowTrustModal(false);
                         setShowPostJoinBanner(false);
-                        router.refresh();
+                        startVoteRefreshTransition(() => {
+                            router.refresh();
+                        });
                     }}
                     onClose={() => setShowTrustModal(false)}
                 />

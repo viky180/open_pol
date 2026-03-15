@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+const TRUST_VOTE_EXPIRES_DAYS = 180;
+
 type StatusTone = 'success' | 'error' | 'info';
 
 interface UsePartyVotingProps {
@@ -46,9 +48,12 @@ export function usePartyVoting({
                 .eq('party_id', partyId)
                 .eq('from_user_id', currentUserId);
 
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + TRUST_VOTE_EXPIRES_DAYS);
+
             const { error: insertError } = await supabase
                 .from('trust_votes')
-                .insert({ party_id: partyId, from_user_id: currentUserId, to_user_id: toUserId });
+                .insert({ party_id: partyId, from_user_id: currentUserId, to_user_id: toUserId, expires_at: expiresAt.toISOString() });
 
             if (insertError) throw insertError;
 

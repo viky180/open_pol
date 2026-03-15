@@ -15,12 +15,13 @@ export interface DiscoverGroupItem {
     likeCount: number;
     likedByMe?: boolean;
     joinedByMe?: boolean;
-    trendPercent?: number;
     lastActiveAt?: string | null;
     type: GroupType;
     hasChildren?: boolean;
     children?: HierarchyChild[];
     parentName?: string;
+    leaderName?: string | null;
+    creatorName?: string | null;
 }
 
 export type DiscoverAllianceMember = {
@@ -37,5 +38,4 @@ export interface DiscoverAllianceItem {
     combinedMemberCount: number;
     groupCount: number;
     scopes: Array<LocationScope | string>;
-    trendPercent?: number;
 }
